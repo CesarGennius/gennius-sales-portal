@@ -201,12 +201,12 @@ class EmailService:
         msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
 
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
+            # 🟢 Usamos SMTP_SSL en el puerto 465 para entornos Cloud (Render/Koyeb)
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
             server.login(self.remitente, self.password)
             server.sendmail(self.remitente, dest + (self.bcc if modo_final else []), msg.as_string())
             server.quit()
             return True, notas_lista
         except Exception as e:
-            print(f"  ERROR DE SMTP: {e}")
+            print(f"   ERROR DE SMTP: {e}")
             return False, []
