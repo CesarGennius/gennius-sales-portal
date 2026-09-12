@@ -1,0 +1,517 @@
+<!-- OVERLAY DE AUTENTICACIÓN CON PALETA OSCURA GENNIUS -->
+<div id="auth-overlay" class="auth-overlay">
+  <!-- VISTA 1: LOGIN / 2FA (BANNER IZQ - FORMULARIO DER) -->
+  <div id="view-login-container" class="auth-container">
+    
+    <!-- BRANDING IZQUIERDA -->
+    <div class="auth-brand">
+      <img src="/src/logo.png" alt="Gennius" class="auth-brand-logo">
+      <h1 class="auth-logo">Gennius Sales</h1>
+      <p class="auth-tagline">Portal de Monitoreo Diario de Ventas Operacionales</p>
+    </div>
+
+    <!-- TARJETAS DERECHA -->
+    <div class="auth-card-box">
+
+      <!-- CARD DE SESIÓN GUARDADA (ACCESO RÁPIDO) -->
+      <div id="card-prelogged" class="auth-card" style="display: none;">
+        <h3 class="auth-sub-title">Continuar Sesión</h3>
+        <p class="auth-desc">Se detectó una sesión activa guardada en este dispositivo.</p>
+
+        <!-- TARJETA INTERACTIVA COMO ÚNICO BOTÓN DE ACCESO -->
+        <div class="user-chip-avatar" onclick="ingresarRapidoPrelogueado()" role="button" tabindex="0">
+          <img id="prelogged-avatar" src="" alt="User Avatar">
+          <div class="user-chip-info">
+            <span id="prelogged-name" class="user-chip-name">Usuario</span>
+            <span id="prelogged-email" class="user-chip-email">correo@dominio.com</span>
+            <span id="prelogged-date" class="user-chip-date">Último acceso: --</span>
+          </div>
+        </div>
+
+        <button class="btn-gennius-secondary" onclick="mostrarLoginForm()">Ingresar con otra cuenta</button>
+      </div>
+
+      <!-- CARD LOGIN -->
+      <div id="card-login" class="auth-card">
+
+        <!-- BANNER DE ALERTA COMPACTO Y DENTRO DE LA TARJETA -->
+        <div id="auth-ui-alert" class="auth-ui-alert" style="display: none;">
+          <span class="alert-dot"></span>
+          <span id="auth-ui-alert-text">Correo o contraseña incorrectos.</span>
+        </div>
+
+        <input type="email" id="login-email" class="gennius-input" placeholder="Correo electrónico">
+        
+        <div class="pwd-input-wrap">
+          <input type="password" id="login-password" class="gennius-input" placeholder="Contraseña">
+          <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('login-password', this)" aria-label="Mostrar contraseña">
+            <svg class="eye-icon eye-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+            <svg class="eye-icon eye-on" style="display: none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+
+        <button class="btn-gennius-primary" onclick="iniciarSesion()">Iniciar sesión</button>
+        <a href="javascript:void(0);" class="gennius-link" onclick="solicitarResetPassword(event)">¿Olvidaste tu contraseña?</a>
+        <div class="gennius-divider"></div>
+        <button class="btn-gennius-green" onclick="mostrarVistaRegistro()">Crear cuenta nueva</button>
+      </div>
+
+      <!-- CARD RECUPERAR CONTRASEÑA (FUERA DE CARD LOGIN) -->
+      <div id="card-reset-pwd" class="auth-card" style="display: none;">
+        <div class="reg-header-row">
+          <h3 class="auth-sub-title">Recuperar Contraseña</h3>
+          <button type="button" class="btn-back-text" onclick="mostrarLoginForm()">← Volver</button>
+        </div>
+        <p class="auth-desc">Ingresa tu correo corporativo. Te enviaremos una contraseña temporal para que puedas ingresar.</p>
+        
+        <input type="email" id="reset-email-input" class="gennius-input" placeholder="correo@dominio.com">
+        
+        <button type="button" id="btn-do-reset" class="btn-gennius-primary btn-full-width" onclick="ejecutarResetPassword()">
+          <span class="btn-text">Enviar Clave Temporal</span>
+          <span class="btn-spinner" style="display: none;"></span>
+        </button>
+      </div>
+
+      <!-- CARD 2FA ESTILO NETFLIX ENMASCARADA -->
+      <div id="card-2fa" class="auth-card" style="display: none;">
+        <h3 class="auth-sub-title">Autenticación 2FA</h3>
+        <p class="auth-desc">Ingresa el código de 6 dígitos enviado a tu correo.</p>
+        
+        <div class="otp-container">
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric" autocomplete="one-time-code" autofocus>
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          <input type="password" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+        </div>
+
+        <div id="otp-loading-status" class="otp-status-msg" style="display: none;">
+          <span class="btn-spinner"></span> Verificando código...
+        </div>
+      </div>
+
+      <!-- CARD CAMBIO DE PASSWORD OBLIGATORIO -->
+      <div id="card-forced-pwd" class="auth-card" style="display: none;">
+        <h3 class="auth-sub-title">Actualiza tu contraseña</h3>
+        <p class="auth-desc">Por seguridad, debes cambiar tu clave temporal por una personal.</p>
+        <div class="pwd-input-wrap">
+          <input type="password" id="new-forced-password" class="gennius-input" placeholder="Nueva Contraseña">
+          <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('new-forced-password', this)" aria-label="Mostrar contraseña">
+            <svg class="eye-icon eye-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+            <svg class="eye-icon eye-on" style="display: none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+        <button class="btn-gennius-primary" onclick="guardarNuevaPasswordObligatoria()">Guardar Nueva Clave</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VISTA 2: REGISTRO CON VALIDACIÓN EN TIEMPO REAL -->
+  <div id="view-register-container" class="auth-container centered-layout" style="display: none;">
+    <div class="auth-card-box wide">
+      <div class="auth-card">
+        <div class="reg-header-row">
+          <div>
+            <h2 class="reg-title">Empieza a usar Gennius Sales</h2>
+            <p class="auth-desc">Crea una cuenta para conectar tu entorno de trabajo.</p>
+          </div>
+          <button type="button" class="btn-back-text" onclick="mostrarVistaLogin()">← Volver al login</button>
+        </div>
+
+        <!-- BANNER DE ALERTA ENTERPRISE UI -->
+        <div id="auth-reg-alert" class="auth-ui-alert" style="display: none;">
+          <span class="alert-dot"></span>
+          <span id="auth-reg-alert-text">Mensaje de error</span>
+        </div>
+
+        <form id="form-registro-usuario" autocomplete="off" novalidate onsubmit="event.preventDefault(); completarRegistro();">
+          <div class="gennius-grid-2">
+            <div class="form-field-group">
+              <label class="input-label-text">Nombre</label>
+              <input type="text" id="reg-nombre" class="gennius-input input-validated" placeholder="Ej: Juan" autocomplete="off">
+            </div>
+            <div class="form-field-group">
+              <label class="input-label-text">Apellido</label>
+              <input type="text" id="reg-apellido" class="gennius-input input-validated" placeholder="Ej: Pérez" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-field-group">
+            <label class="input-label-text">Correo Corporativo *</label>
+            <input type="email" id="reg-email" class="gennius-input input-validated" placeholder="usuario@empresa.com" autocomplete="off">
+          </div>
+
+          <!-- CONTRASEÑA DEL SISTEMA -->
+          <div class="form-field-group">
+            <label class="input-label-text">Contraseña * (Mín. 12 carac., 1 número y 1 especial)</label>
+            <div class="pwd-input-wrap">
+              <input type="password" id="reg-password" class="gennius-input input-validated" placeholder="Ej: MiClave1234@!" autocomplete="new-password">
+              <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('reg-password', this)" aria-label="Mostrar contraseña">
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+
+          <h4 class="reg-section-title">Parámetros de Integraciones (.ENV)</h4>
+
+          <!-- GEMINI_API_KEY -->
+          <div class="form-field-group">
+            <label class="input-label-text">GEMINI_API_KEY (Comienza con A)</label>
+            <div class="pwd-input-wrap">
+              <input type="password" id="reg-gemini-key" class="gennius-input input-validated" placeholder="AIza..." autocomplete="new-password">
+              <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('reg-gemini-key', this)" aria-label="Mostrar llave">
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- REMITENTE (SMTP) -->
+          <div class="form-field-group">
+            <label class="input-label-text">REMITENTE (SMTP Google)</label>
+            <input type="email" id="reg-remitente" class="gennius-input input-validated" placeholder="notificaciones@empresa.com" autocomplete="off">
+          </div>
+
+          <!-- PASSWORD (CLAVE APLICACIÓN GOOGLE) -->
+          <div class="form-field-group">
+            <label class="input-label-text">PASSWORD (Clave Aplicación Google - 16 Caracteres)</label>
+            <div class="pwd-input-wrap">
+              <input type="password" id="reg-google-password" class="gennius-input input-validated" placeholder="abcd efgh ijkl mnop" autocomplete="new-password">
+              <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('reg-google-password', this)" aria-label="Mostrar contraseña de aplicación">
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-field-group">
+            <label class="input-label-text">MI_CORREO (Alertas directas)</label>
+            <input type="email" id="reg-mi-correo" class="gennius-input input-validated" placeholder="alertas@empresa.com" autocomplete="off">
+          </div>
+
+          <div class="form-field-group">
+            <label class="input-chips-label">DESTINATARIOS_FINALES (Enter o Coma):</label>
+            <div class="chips-container" id="chips-finales-box">
+              <input type="text" id="input-finales" class="chip-input-field" placeholder="destino@ejemplo.com" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-field-group">
+            <label class="input-chips-label">DESTINATARIOS_BCC (Enter o Coma):</label>
+            <div class="chips-container" id="chips-bcc-box">
+              <input type="text" id="input-bcc" class="chip-input-field" placeholder="bcc@ejemplo.com" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="gennius-grid-2">
+            <div class="form-field-group">
+              <label class="input-label-text">NOMBRE_FIRMA</label>
+              <input type="text" id="reg-firma-nombre" class="gennius-input input-validated" placeholder="Ej: Equipo de Soporte" autocomplete="off">
+            </div>
+            <div class="form-field-group">
+              <label class="input-label-text">CARGO_FIRMA</label>
+              <input type="text" id="reg-firma-cargo" class="gennius-input input-validated" placeholder="Ej: Analista de Operaciones" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="gennius-grid-2">
+            <div class="form-field-group">
+              <label class="input-label-text">SHEET_ID</label>
+              <input type="text" id="reg-sheet-id" class="gennius-input input-validated" placeholder="1y87dr_wSmW05..." autocomplete="off">
+            </div>
+            <div class="form-field-group">
+              <label class="input-label-text">GID_HOJA (Solo Números)</label>
+              <input type="text" id="reg-gid-hoja" class="gennius-input input-validated" placeholder="0" autocomplete="off" inputmode="numeric">
+            </div>
+          </div>
+
+          <button type="submit" id="btn-completar-reg" class="btn-gennius-green btn-full-width" style="margin-top: 15px;">
+            Completar Registro
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMPLETO: MI PERFIL Y SEGURIDAD -->
+<div id="modal-mi-perfil" class="gennius-modal-backdrop" style="display: none;">
+  <div class="gennius-modal-content wide responsive-modal">
+    <div class="gennius-modal-header">
+      <h3 class="auth-sub-title">Configuración de Mi Perfil</h3>
+      <span class="gennius-close-btn" onclick="cerrarModal('modal-mi-perfil')">&times;</span>
+    </div>
+    
+    <div class="gennius-modal-body">
+      
+      <!-- 🟢 AVATAR ACTUAL CENTRADO CON BOTÓN LÁPIZ -->
+      <div class="profile-avatar-preview-wrap">
+        <div class="profile-avatar-container">
+          <img id="profile-current-avatar-img" src="" alt="Avatar Perfil">
+          <button type="button" class="avatar-edit-pencil-btn" onclick="abrirModalSelectorAvatar()" aria-label="Cambiar Avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <form id="form-perfil-general" onsubmit="event.preventDefault(); guardarCambiosPerfil();">
+        <!-- NOMBRE Y APELLIDO -->
+        <div class="gennius-grid-2">
+          <div class="form-field-group">
+            <label for="edit-nombre" class="input-label-text">Nombre</label>
+            <input type="text" id="edit-nombre" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="Nombre">
+          </div>
+          <div class="form-field-group">
+            <label for="edit-apellido" class="input-label-text">Apellido</label>
+            <input type="text" id="edit-apellido" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="Apellido">
+          </div>
+        </div>
+
+        <h4 class="reg-section-title">Integraciones y Parámetros .ENV</h4>
+
+        <!-- GEMINI_API_KEY CON BANDERAS DE OCULTAR/DESOCULTAR -->
+        <div class="form-field-group">
+          <label for="edit-gemini-key" class="input-label-text">GEMINI_API_KEY</label>
+          <div class="pwd-input-wrap">
+            <input type="password" id="edit-gemini-key" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="GEMINI_API_KEY">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-gemini-key', this)" aria-label="Mostrar llave">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- REMITENTE -->
+        <div class="form-field-group">
+          <label for="edit-remitente" class="input-label-text">REMITENTE (SMTP Google)</label>
+          <input type="email" id="edit-remitente" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="REMITENTE (SMTP Google)">
+        </div>
+
+        <!-- PASSWORD CON BANDERAS DE OCULTAR/DESOCULTAR -->
+        <div class="form-field-group">
+          <label for="edit-google-password" class="input-label-text">PASSWORD (Clave Aplicación Google)</label>
+          <div class="pwd-input-wrap">
+            <input type="password" id="edit-google-password" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="PASSWORD (Clave Aplicación Google)">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-google-password', this)" aria-label="Mostrar contraseña">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- MI_CORREO -->
+        <div class="form-field-group">
+          <label for="edit-mi-correo" class="input-label-text">MI_CORREO (Alertas directas)</label>
+          <input type="email" id="edit-mi-correo" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="MI_CORREO (Alertas directas)">
+        </div>
+
+        <!-- DESTINATARIOS_FINALES -->
+        <div class="form-field-group">
+          <label class="input-chips-label">DESTINATARIOS_FINALES (Enter o Coma):</label>
+          <div class="chips-container" id="edit-chips-finales-box">
+            <input type="text" id="edit-input-finales" class="chip-input-field" placeholder="correo@ejemplo.com">
+          </div>
+        </div>
+
+        <!-- DESTINATARIOS_BCC -->
+        <div class="form-field-group">
+          <label class="input-chips-label">DESTINATARIOS_BCC (Enter o Coma):</label>
+          <div class="chips-container" id="edit-chips-bcc-box">
+            <input type="text" id="edit-input-bcc" class="chip-input-field" placeholder="bcc@ejemplo.com">
+          </div>
+        </div>
+
+        <!-- FIRMA -->
+        <div class="gennius-grid-2">
+          <div class="form-field-group">
+            <label for="edit-firma-nombre" class="input-label-text">NOMBRE_FIRMA</label>
+            <input type="text" id="edit-firma-nombre" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="NOMBRE_FIRMA">
+          </div>
+          <div class="form-field-group">
+            <label for="edit-firma-cargo" class="input-label-text">CARGO_FIRMA</label>
+            <input type="text" id="edit-firma-cargo" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="CARGO_FIRMA">
+          </div>
+        </div>
+
+        <!-- GOOGLE SHEETS -->
+        <div class="gennius-grid-2">
+          <div class="form-field-group">
+            <label for="edit-sheet-id" class="input-label-text">SHEET_ID</label>
+            <input type="text" id="edit-sheet-id" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="SHEET_ID">
+          </div>
+          <div class="form-field-group">
+            <label for="edit-gid-hoja" class="input-label-text">GID_HOJA</label>
+            <input type="text" id="edit-gid-hoja" class="gennius-input input-lockable" readonly onclick="habilitarCampo(this)" placeholder="GID_HOJA">
+          </div>
+        </div>
+
+        <button type="submit" id="btn-save-perfil" class="btn-gennius-green btn-full-width" style="margin-top: 15px;">Guardar Cambios de Perfil</button>
+      </form>
+
+      <hr class="gennius-divider-sec">
+
+      <!-- 3. MINI MÓDULO: CAMBIO DE CORREO ELECTRÓNICO -->
+      <div class="sub-module-box">
+        <h4 class="sub-module-title">Cambiar Correo Electrónico</h4>
+        <p class="auth-desc">Al cambiarlo, recibirás un código de verificación en el nuevo correo para confirmar.</p>
+        <input type="email" id="edit-nuevo-email" class="gennius-input" placeholder="Nuevo Correo Corporativo" autocomplete="off" value="">
+        
+        <div id="wrap-step-email-2fa" style="display: none; margin-top: 8px;">
+          <input type="text" id="code-email-2fa" class="gennius-input text-center" maxlength="6" placeholder="Código de 6 dígitos" autocomplete="off">
+        </div>
+
+        <button type="button" id="btn-action-email" class="btn-gennius-primary btn-full-width" onclick="solicitarCambioEmail()">Solicitar Cambio de Correo</button>
+      </div>
+
+      <!-- 4. MINI MÓDULO: CAMBIO DE CONTRASEÑA CON BOTONES DE OJO -->
+      <div class="sub-module-box">
+        <h4 class="sub-module-title">Cambiar Contraseña</h4>
+        <div class="gennius-grid-2">
+          <div class="pwd-input-wrap">
+            <input type="password" id="edit-new-pass-1" class="gennius-input" placeholder="Nueva Contraseña" autocomplete="new-password" value="">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-new-pass-1', this)" aria-label="Mostrar contraseña">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+          <div class="pwd-input-wrap">
+            <input type="password" id="edit-new-pass-2" class="gennius-input" placeholder="Repetir Nueva Contraseña" autocomplete="new-password" value="">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-new-pass-2', this)" aria-label="Mostrar contraseña">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="wrap-step-pass-2fa" style="display: none; margin-top: 8px;">
+          <input type="text" id="code-pass-2fa" class="gennius-input text-center" maxlength="6" placeholder="Código enviado al correo" autocomplete="off">
+        </div>
+
+        <button type="button" id="btn-action-pass" class="btn-gennius-primary btn-full-width" onclick="solicitarCambioPassword()">Actualizar Contraseña</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🟢 NUEVO MODAL INDEPENDIENTE: SELECTOR DE AVATARES -->
+<div id="modal-selector-avatar" class="gennius-modal-backdrop" style="display: none;">
+  <div class="gennius-modal-content responsive-modal">
+    <div class="gennius-modal-header">
+      <h3 class="auth-sub-title">Seleccionar Avatar</h3>
+      <span class="gennius-close-btn" onclick="cerrarModal('modal-selector-avatar')">&times;</span>
+    </div>
+    <div class="gennius-modal-body">
+      <p class="auth-desc" style="margin-bottom: 10px;">Elige una ilustración para tu perfil:</p>
+      
+      <!-- CUADRÍCULA RESPONSIVE DE AVATARES MEDIANOS -->
+      <div class="avatar-grid-modal" id="avatar-picker-grid">
+        <!-- Avatares inyectados dinámicamente -->
+      </div>
+
+      <button type="button" id="btn-confirm-avatar" class="btn-gennius-green btn-full-width" style="margin-top: 15px;" onclick="confirmarSeleccionAvatar()">
+        Guardar Avatar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 2: GESTIONAR USUARIOS (DISEÑO TARJETAS MODERNAS) -->
+<div id="modal-admin-usuarios" class="gennius-modal-backdrop" style="display: none;">
+  <div class="gennius-modal-content wide">
+    <div class="gennius-modal-header">
+      <h3 class="auth-sub-title">Gestión de Cuentas / Usuarios</h3>
+      <span class="gennius-close-btn" onclick="cerrarModal('modal-admin-usuarios')">&times;</span>
+    </div>
+    <div class="gennius-modal-body">
+      <!-- Contenedor dinámico en cuadrícula -->
+      <div id="admin-users-cards-container" class="admin-users-grid">
+        <!-- Tarjetas inyectadas vía JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🤖 MODAL INDEPENDIENTE 3: CONFIGURACIÓN DE MODELOS IA -->
+<div id="modal-modelos-ia" class="gennius-modal-backdrop" style="display: none;">
+  <div class="gennius-modal-content responsive-modal">
+    <div class="gennius-modal-header">
+      <h3 class="auth-sub-title">🤖 Configuración de Modelos IA</h3>
+      <span class="gennius-close-btn" onclick="cerrarModal('modal-modelos-ia')">&times;</span>
+    </div>
+
+    <div class="gennius-modal-body">
+      <p class="auth-desc" style="margin-bottom: 15px;">
+        Selecciona el modelo principal para procesar tus reportes e ingresa tus llaves. El sistema usará los otros modelos guardados como respaldo automático si el principal falla.
+      </p>
+
+      <form id="form-config-ia" onsubmit="event.preventDefault(); guardarConfiguracionIA();">
+        <!-- SELECCIÓN DEL MODELO ACTIVO -->
+        <div class="form-field-group" style="margin-bottom: 15px;">
+          <label class="input-label-text">Modelo IA Activo Principal</label>
+          <select id="ia-modelo-activo" class="gennius-input" style="background: #0f172a; color: #38bdf8; font-weight: 600;">
+            <option value="gemini">Google Gemini (Default)</option>
+            <option value="groq">Groq Cloud (Llama 3.2 Vision - Recomendado)</option>
+            <option value="huggingface">Hugging Face (Qwen2-VL)</option>
+          </select>
+        </div>
+
+        <!-- LLAVE GEMINI CON ÍCONO SVG -->
+        <div class="form-field-group">
+          <label for="ia-key-gemini" class="input-label-text">GEMINI_API_KEY (Comienza con A)</label>
+          <div class="pwd-input-wrap">
+            <input type="password" id="ia-key-gemini" class="gennius-input" placeholder="AIzaSy...">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('ia-key-gemini', this)" aria-label="Mostrar llave">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- LLAVE GROQ CON ÍCONO SVG -->
+        <div class="form-field-group" style="margin-top: 10px;">
+          <label for="ia-key-groq" class="input-label-text">GROQ_API_KEY (Comienza con gsk_)</label>
+          <div class="pwd-input-wrap">
+            <input type="password" id="ia-key-groq" class="gennius-input" placeholder="gsk_...">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('ia-key-groq', this)" aria-label="Mostrar llave">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- LLAVE HUGGING FACE CON ÍCONO SVG -->
+        <div class="form-field-group" style="margin-top: 10px;">
+          <label for="ia-key-hf" class="input-label-text">HF_API_KEY (Hugging Face Token)</label>
+          <div class="pwd-input-wrap">
+            <input type="password" id="ia-key-hf" class="gennius-input" placeholder="hf_...">
+            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('ia-key-hf', this)" aria-label="Mostrar llave">
+              <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+              <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="btn-save-ia-config" class="btn-gennius-green btn-full-width" style="margin-top: 20px;">
+          Guardar Configuración IA
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

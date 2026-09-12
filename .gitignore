@@ -1,0 +1,19 @@
+# Entorno virtual y Python
+venv/
+__pycache__/
+*.pyc
+
+# Datos locales y llaves secretas de producción
+data/
+*.key
+*.json
+
+# Temporales de Excel / Logs
+data/data_dia/
+*.xls
+*.xlsx
+
+# Configuración IDE
+.vscode/
+.idea/
+.env
