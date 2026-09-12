@@ -1,3 +1,4 @@
+import socket
 import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
@@ -201,12 +202,29 @@ class EmailService:
         msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
 
         try:
-            # 🟢 Usamos SMTP_SSL en el puerto 465 para entornos Cloud (Render/Koyeb)
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
+            # 🟢 1. Forzar la resolución DNS de Gmail estrictamente a IPv4
+            host = "smtp.gmail.com"
+            port = 465
+            
+            # Obtener la IP v4 explícita
+            addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            remote_ip = addr_info[0][4][0]
+
+            # 🟢 2. Crear socket IPv4 con timeout
+            raw_socket = socket.create_connection((remote_ip, port), timeout=15)
+            
+            # 🟢 3. Envolver el socket con SSL e iniciar el cliente SMTP (pasando server_hostname para validar el certificado SSL de Gmail)
+            server = smtplib.SMTP_SSL(server_hostname=host)
+            server.sock = server.context.wrap_socket(raw_socket, server_hostname=host)
+            
+            # 🟢 4. Autenticar y enviar
             server.login(self.remitente, self.password)
             server.sendmail(self.remitente, dest + (self.bcc if modo_final else []), msg.as_string())
             server.quit()
+            
+            print("✅ Correo enviado exitosamente vía IPv4 SSL")
             return True, notas_lista
+
         except Exception as e:
             print(f"   ERROR DE SMTP: {e}")
             return False, []
