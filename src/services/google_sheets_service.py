@@ -39,12 +39,23 @@ def obtener_ruta_secret_file(nombre_archivo: str) -> str:
     return ruta_local  # Retorno fallback para creación inicial si aplica
 
 def obtener_cliente_gspread():
-    """Inicializa el cliente oficial usando OAuth de escritorio"""
+    """Inicializa el cliente oficial usando OAuth de escritorio con fallback seguro para servidores headless"""
     ruta_client_secrets = obtener_ruta_secret_file("credentials.json")
     ruta_token = obtener_ruta_secret_file("token.json")
+    
     if not os.path.exists(ruta_client_secrets):
+        print("⚠️ [GoogleSheets] No se encontró credentials.json en las rutas especificadas.")
         return None
-    return gspread.oauth(credentials_filename=ruta_client_secrets, authorized_user_filename=ruta_token)
+
+    try:
+        # Conexión directa estándar usando los archivos resueltos dinámicamente
+        return gspread.oauth(
+            credentials_filename=ruta_client_secrets, 
+            authorized_user_filename=ruta_token
+        )
+    except Exception as e:
+        print(f"❌ Error al autenticar con Google Sheets OAuth: {e}")
+        return None
 
 def _obtener_credenciales_hoja():
     """Obtiene SHEET_ID y GID_HOJA de os.environ o directamente de users_db.json como fallback."""
