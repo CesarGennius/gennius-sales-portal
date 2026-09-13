@@ -556,6 +556,29 @@
   padding: 16px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px;
 }
 
+/* 🟢 Alineación centrada y elegante para contenedores OTP dentro de sub-módulos/modales */
+.sub-module-box .otp-container {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin: 16px auto !important;
+  width: 100% !important;
+  max-width: 360px !important; /* Limita el ancho máximo para no estirarse feo en pantallas grandes */
+}
+
+/* Ajuste responsive para móviles estrechos */
+@media (max-width: 480px) {
+  .sub-module-box .otp-container {
+    gap: 6px !important;
+    max-width: 100% !important;
+  }
+  .sub-module-box .otp-field {
+    width: 40px !important;
+    height: 48px !important;
+    font-size: 1.3rem !important;
+  }
+}
+
 .sub-module-title { color: #38bdf8; font-size: 0.9rem; font-weight: 700; }
 .gennius-divider-sec { border: 0; height: 1px; background: #334155; margin: 16px 0; }
 

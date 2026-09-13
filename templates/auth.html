@@ -370,13 +370,23 @@
       <!-- 3. MINI MÓDULO: CAMBIO DE CORREO ELECTRÓNICO -->
       <div class="sub-module-box">
         <h4 class="sub-module-title">Cambiar Correo Electrónico</h4>
-        <p class="auth-desc">Al cambiarlo, recibirás un código de verificación en el nuevo correo para confirmar.</p>
+        <p class="auth-desc">Al cambiarlo, recibirás un código de verificación en el correo actual para confirmar.</p>
         <input type="email" id="edit-nuevo-email" class="gennius-input" placeholder="Nuevo Correo Corporativo" autocomplete="off" value="">
-        
+                
         <div id="wrap-step-email-2fa" style="display: none; margin-top: 8px;">
-          <input type="text" id="code-email-2fa" class="gennius-input text-center" maxlength="6" placeholder="Código de 6 dígitos" autocomplete="off">
+          <div class="otp-container">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric" autocomplete="one-time-code">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          </div>
+          <!-- 🟢 AVISO DE CUENTA REGRESIVA -->
+          <div id="email-countdown-msg" style="display: none; text-align: center; color: #38bdf8; font-weight: 600; font-size: 0.88rem; margin-top: 10px;">
+            Se finalizará la sesión en <span id="email-countdown-num">5</span>s...
+          </div>
         </div>
-
         <button type="button" id="btn-action-email" class="btn-gennius-primary btn-full-width" onclick="solicitarCambioEmail()">Solicitar Cambio de Correo</button>
       </div>
 
@@ -386,26 +396,32 @@
         <div class="gennius-grid-2">
           <div class="pwd-input-wrap">
             <input type="password" id="edit-new-pass-1" class="gennius-input" placeholder="Nueva Contraseña" autocomplete="new-password" value="">
-            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-new-pass-1', this)" aria-label="Mostrar contraseña">
+            <button type="button" class="pwd-eye-btn" onclick="toggleAmbasPasswords(this)" aria-label="Mostrar contraseña">
               <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
               <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
           </div>
           <div class="pwd-input-wrap">
             <input type="password" id="edit-new-pass-2" class="gennius-input" placeholder="Repetir Nueva Contraseña" autocomplete="new-password" value="">
-            <button type="button" class="pwd-eye-btn" onclick="togglePasswordVisibility('edit-new-pass-2', this)" aria-label="Mostrar contraseña">
+            <button type="button" class="pwd-eye-btn" onclick="toggleAmbasPasswords(this)" aria-label="Mostrar contraseña">
               <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
               <svg class="eye-icon eye-on" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
           </div>
         </div>
-
         <div id="wrap-step-pass-2fa" style="display: none; margin-top: 8px;">
-          <input type="text" id="code-pass-2fa" class="gennius-input text-center" maxlength="6" placeholder="Código enviado al correo" autocomplete="off">
+          <div class="otp-container">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric" autocomplete="one-time-code">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+            <input type="text" class="otp-field" maxlength="1" pattern="[0-9]*" inputmode="numeric">
+          </div>
         </div>
-
         <button type="button" id="btn-action-pass" class="btn-gennius-primary btn-full-width" onclick="solicitarCambioPassword()">Actualizar Contraseña</button>
       </div>
+
     </div>
   </div>
 </div>
