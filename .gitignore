@@ -4,9 +4,9 @@ __pycache__/
 *.pyc
 
 # Datos locales y llaves secretas de producción
-data/
-*.key
-*.json
+data/*.key
+data/credentials.json
+data/token.json
 
 # Temporales de Excel / Logs
 data/data_dia/
@@ -17,3 +17,6 @@ data/data_dia/
 .vscode/
 .idea/
 .env
+
+# Excepción: SÍ rastrear la base de datos de usuarios
+!data/users_db.json

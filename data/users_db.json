@@ -1,0 +1,34 @@
+{
+  "carodriguez@wearegennius.com": {
+    "password": "gAAAAABqpr2ROkzXm5VAqWZSDQW0-Ifz6maetsBtWZqpTfdsG6tL8mCdLZjNI_tHg5JHZ2M7YE4ABIaiIiogQdrgZXtt6cGJgQ==",
+    "nombre": "C\u00e9sar Augusto",
+    "apellido": "Rodr\u00edguez T\u00e9llez",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=eutgokw0&backgroundColor[]=ff8fab&backgroundColor[]=ffb703&backgroundColor[]=4cc9a7&backgroundColor[]=4d96ff&backgroundColor[]=b57bff",
+    "es_admin": true,
+    "requiere_cambio_pwd": false,
+    "config_env": {
+      "GEMINI_API_KEY": "gAAAAABqprsVYTJxP7EWeQlwDxc4FnXB8gMIc2iC8wec69fBmaUJQfpzIlIpTJ21vXwzrm1lY8NW8MUtMVMwfh_aMRkcknuG4Yyx4XPpa9Jz4hZaKkvnKZwHNTgK9QJ2fE-lKKSrDAnFX5aY4Rh0CMKicAYE-8Uaow==",
+      "REMITENTE": "carodriguez@wearegennius.com",
+      "PASSWORD": "gAAAAABqprsV-OVNPVa380bQTsmsKPySxk_7Bw0WFpyJKLdtw6j3IkAr-UArjVSh-PFeNU5G-QjfRRAduD_WuFWgNR1OYCjP3fsDcEGY4BTx0VTLhW5WfzQ=",
+      "MI_CORREO": "carodriguez@wearegennius.com",
+      "DESTINATARIOS_FINALES": [
+        "sergio@wearegennius.com",
+        "ltobian@wearegennius.com",
+        "rmccarthy@wearegennius.com",
+        "yisaza@wearegennius.com",
+        "jvalencia@wearegennius.com",
+        "cnavia@wearegennius.com",
+        "bmontoya@wearegennius.com"
+      ],
+      "DESTINATARIOS_BCC": [
+        "salesreports@wearegennius.com"
+      ],
+      "NOMBRE_FIRMA": "C\u00e9sar Rodr\u00edguez",
+      "CARGO_FIRMA": "Application Support Analyst",
+      "SHEET_ID": "1y87dr_wSmW05TuWiAVVgTcPbhNmY5iXKRYi5tkuZXKM",
+      "GID_HOJA": "1761212878",
+      "MODELO_IA_ACTIVO": "gemini",
+      "GROQ_API_KEY": "gAAAAABqlMS5G9dUuahe_qFMwK0o5teUhZcjdDwhXRyUBoepsAAvCPUWBetd11-RVbTla1oFABY3BwfHCXeopVE8TQFE6Pd1O8omshM3xgx2UCCxQIUtKFt_Kgui9b3VGS6dJqwYxszY4GBbQW1XTC3m5Tn9bAFh9A=="
+    }
+  }
+}
