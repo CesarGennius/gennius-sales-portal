@@ -1,3 +1,4 @@
+import socket
 import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
@@ -200,10 +201,14 @@ class EmailService:
         msg['Subject'] = sujeto
         msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
 
+        # 🟢 Limpieza de seguridad para la contraseña de aplicación de Google
+        # Elimina espacios en blanco invisibles que Render a veces inyecta
+        pwd_limpia = self.password.replace(" ", "").strip() if self.password else ""
+
         try:
-            # 🟢 Conexión SSL directa en puerto 465 (Optimizada para la infraestructura de Render)
-            server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30)
-            server.login(self.remitente, self.password)
+            # 🟢 Conexión SSL directa en puerto 465 (Compatible con Local y Render)
+            server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20)
+            server.login(self.remitente, pwd_limpia)
             
             # Preparamos los destinatarios
             destinatarios_finales = dest + (self.bcc if modo_final else [])
@@ -214,6 +219,14 @@ class EmailService:
             print("✅ Correo enviado exitosamente vía SMTP SSL")
             return True, notas_lista
 
+        except smtplib.SMTPAuthenticationError as auth_err:
+            # 🟢 Muestra explícitamente en los logs de Render si la clave de Google fue rechazada
+            print(f"❌ ERROR 535 AUTENTICACIÓN GMAIL: La contraseña de aplicación para '{self.remitente}' no es válida en Render. Detalles: {auth_err}")
+            return False, []
+            
         except Exception as e:
-            print(f"   ERROR DE SMTP: {e}")
+            # 🟢 Imprime el tipo exacto de error (Timeout, ConnectionRefused, etc.) en los logs
+            print(f"❌ ERROR DE SMTP ({type(e).__name__}): {e}")
+            import traceback
+            traceback.print_exc()
             return False, []
