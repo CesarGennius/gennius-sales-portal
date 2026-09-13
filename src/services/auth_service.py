@@ -9,8 +9,28 @@ from email.mime.multipart import MIMEMultipart
 from cryptography.fernet import Fernet
 
 USERS_DB_PATH = os.path.join("data", "users_db.json")
-KEY_PATH = os.path.join("data", "secret.key")
 ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
+
+# 🟢 Búsqueda inteligente de la llave (Soporta Local y Render Secret Files)
+def _obtener_key_path():
+    # 1. Ruta local en subcarpeta data/
+    local_path = os.path.join("data", "secret.key")
+    if os.path.exists(local_path):
+        return local_path
+    
+    # 2. Ruta en la raíz del proyecto (donde Render coloca los Secret Files)
+    root_path = "secret.key"
+    if os.path.exists(root_path):
+        return root_path
+        
+    # 3. Ruta absoluta estándar de Secret Files en Render
+    etc_path = "/etc/secrets/secret.key"
+    if os.path.exists(etc_path):
+        return etc_path
+        
+    return local_path
+
+KEY_PATH = _obtener_key_path()
 
 class AuthService:
     _otps_in_memory = {}
@@ -26,7 +46,7 @@ class AuthService:
                     key_file.write(key)
             else:
                 with open(KEY_PATH, "rb") as key_file:
-                    key = key_file.read()
+                    key = key_file.read().strip()
             cls._fernet = Fernet(key)
         return cls._fernet
 

@@ -18,10 +18,30 @@ oned_historico_cache = {
     "630pm": {"tokenized": "", "transaction": ""}
 }
 
+def obtener_ruta_secret_file(nombre_archivo: str) -> str:
+    """
+    Busca un archivo sensible priorizando:
+    1. ./data/<nombre_archivo> (Desarrollo Local)
+    2. ./<nombre_archivo> (Render Secret Files en raíz)
+    3. /etc/secrets/<nombre_archivo> (Ruta absoluta por defecto de Render)
+    """
+    ruta_local = os.path.join("data", nombre_archivo)
+    if os.path.exists(ruta_local):
+        return ruta_local
+    
+    if os.path.exists(nombre_archivo):
+        return nombre_archivo
+        
+    ruta_render_etc = os.path.join("/etc/secrets", nombre_archivo)
+    if os.path.exists(ruta_render_etc):
+        return ruta_render_etc
+
+    return ruta_local  # Retorno fallback para creación inicial si aplica
+
 def obtener_cliente_gspread():
     """Inicializa el cliente oficial usando OAuth de escritorio"""
-    ruta_client_secrets = os.path.join("data", "credentials.json")
-    ruta_token = os.path.join("data", "token.json")
+    ruta_client_secrets = obtener_ruta_secret_file("credentials.json")
+    ruta_token = obtener_ruta_secret_file("token.json")
     if not os.path.exists(ruta_client_secrets):
         return None
     return gspread.oauth(credentials_filename=ruta_client_secrets, authorized_user_filename=ruta_token)
