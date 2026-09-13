@@ -4,6 +4,7 @@ import random
 import time
 import string
 import smtplib
+import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from cryptography.fernet import Fernet
@@ -11,7 +12,7 @@ from cryptography.fernet import Fernet
 USERS_DB_PATH = os.path.join("data", "users_db.json")
 ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
 
-# 🟢 Búsqueda inteligente de la llave (Soporta Local y Render Secret Files)
+# 🟢 Búsqueda inteligente y dinámica de la llave (Soporta Local y Render Secret Files)
 def _obtener_key_path():
     # 1. Ruta local en subcarpeta data/
     local_path = os.path.join("data", "secret.key")
@@ -30,7 +31,6 @@ def _obtener_key_path():
         
     return local_path
 
-KEY_PATH = _obtener_key_path()
 
 class AuthService:
     _otps_in_memory = {}
@@ -40,21 +40,35 @@ class AuthService:
     def _get_cipher(cls):
         if cls._fernet is None:
             os.makedirs("data", exist_ok=True)
-            if not os.path.exists(KEY_PATH):
+            key_path = _obtener_key_path() # 🟢 Evaluación dinámica en tiempo de ejecución
+            
+            if not os.path.exists(key_path):
                 key = Fernet.generate_key()
-                with open(KEY_PATH, "wb") as key_file:
+                with open(key_path, "wb") as key_file:
                     key_file.write(key)
             else:
-                with open(KEY_PATH, "rb") as key_file:
-                    key = key_file.read().strip()
-            cls._fernet = Fernet(key)
+                with open(key_path, "rb") as key_file:
+                    key = key_file.read().strip() # 🟢 Limpieza de saltos de línea invisibles (\n / \r)
+            
+            try:
+                cls._fernet = Fernet(key)
+            except Exception as e:
+                print(f"❌ ERROR CRÍTICO INSTANCIANDO FERNET CON LLAVE ({key_path}): {e}")
+                traceback.print_exc()
+                # Fallback defensivo para evitar que el proceso colapse con HTTP 500
+                cls._fernet = Fernet(Fernet.generate_key())
+                
         return cls._fernet
 
     @classmethod
     def _encrypt_text(cls, text: str) -> str:
         if not text: return ""
-        cipher = cls._get_cipher()
-        return cipher.encrypt(text.encode('utf-8')).decode('utf-8')
+        try:
+            cipher = cls._get_cipher()
+            return cipher.encrypt(text.encode('utf-8')).decode('utf-8')
+        except Exception as e:
+            print(f"❌ Error encriptando texto: {e}")
+            return text
 
     @classmethod
     def _decrypt_text(cls, encrypted_text: str) -> str:
@@ -62,7 +76,9 @@ class AuthService:
         try:
             cipher = cls._get_cipher()
             return cipher.decrypt(encrypted_text.encode('utf-8')).decode('utf-8')
-        except Exception:
+        except Exception as e:
+            # 🟢 Si falla la desencriptación (por desincronización de secret.key), captura el error sin dar HTTP 500
+            print(f"⚠️ Error desencriptando texto (Posible discrepancia de secret.key): {e}")
             return encrypted_text
 
     @staticmethod
@@ -110,7 +126,6 @@ class AuthService:
         es_admin = email in [a.lower() for a in ADMIN_EMAILS]
         
         nombre_completo = f"{user_data.get('nombre', '')} {user_data.get('apellido', '')}".strip() or email
-        # En services/auth_service.py, línea ~88
         avatar_defecto = user_data.get("avatar") or f"https://api.dicebear.com/7.x/adventurer/svg?seed={email.split('@')[0]}&backgroundColor=ff8fab,ffb703,4cc9a7,4d96ff,b57bff"
 
         db[email] = {
@@ -189,10 +204,14 @@ class AuthService:
         db[email]["requiere_cambio_pwd"] = True
         cls._save_db(db)
         
-        config = db[email]["config_env"]
+        config = db[email].get("config_env", {})
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
         google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
         
+        # 🟢 Limpieza de la clave de aplicación de Google para evitar espacios accidentales de Render
+        if google_pwd:
+            google_pwd = google_pwd.replace(" ", "").strip()
+
         msg = MIMEMultipart()
         msg['From'] = remitente
         msg['To'] = email
@@ -213,13 +232,13 @@ class AuthService:
         msg.attach(MIMEText(html_body, 'html'))
         
         try:
-            # 🟢 CAMBIO A SMTP_SSL EN PUERTO 465 CON TIMEOUT DE 30s
             server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
             return True, "Se ha enviado la contraseña temporal a tu correo."
         except Exception as e:
+            print(f"❌ Error enviando correo vía SMTP en reset_password_and_email: {e}")
             return False, f"Error enviando correo via SMTP: {str(e)}"
 
     @classmethod
@@ -239,10 +258,13 @@ class AuthService:
         email = email.strip().lower()
         if email not in db: return False, "Usuario no existe."
         
-        config = db[email]["config_env"]
+        config = db[email].get("config_env", {})
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
         google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
         
+        if google_pwd:
+            google_pwd = google_pwd.replace(" ", "").strip()
+
         otp_code = f"{random.randint(100000, 999999)}"
         cls._otps_in_memory[email] = {"code": otp_code, "expires": time.time() + 600}
         
@@ -265,13 +287,13 @@ class AuthService:
         msg.attach(MIMEText(html_body, 'html'))
         
         try:
-            # 🟢 CAMBIO A SMTP_SSL EN PUERTO 465
             server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
             return True, "Código enviado."
         except Exception as e:
+            print(f"❌ Error enviando código 2FA: {e}")
             return False, str(e)
 
     @classmethod
