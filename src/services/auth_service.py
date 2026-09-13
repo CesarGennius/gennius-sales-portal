@@ -4,6 +4,7 @@ import random
 import time
 import string
 import smtplib
+import socket
 import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -11,6 +12,23 @@ from cryptography.fernet import Fernet
 
 USERS_DB_PATH = os.path.join("data", "users_db.json")
 ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
+
+def crear_conexion_smtp_ipv4(host="smtp.gmail.com", port=465, timeout=30):
+    """
+    Fuerza la resolución DNS por IPv4 (socket.AF_INET) para evitar el error
+    'Errno 101 Network is unreachable' provocado por IPv6 en Render.
+    """
+    # 1. Obtener la IP IPv4 de smtp.gmail.com
+    infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    if not infos:
+        raise RuntimeError(f"No se pudo resolver {host} vía IPv4")
+    
+    ip_ipv4 = infos[0][4][0]
+    
+    # 2. Conectar directamente a la IP IPv4 manteniendo la verificación SSL
+    server = smtplib.SMTP_SSL(ip_ipv4, port, timeout=timeout)
+    server.server_hostname = host # Requerido para la validación del certificado SSL
+    return server
 
 # 🟢 Búsqueda inteligente y dinámica de la llave (Soporta Local y Render Secret Files)
 def _obtener_key_path():
@@ -232,7 +250,8 @@ class AuthService:
         msg.attach(MIMEText(html_body, 'html'))
         
         try:
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
+            # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
+            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 465, timeout=30)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
@@ -287,7 +306,8 @@ class AuthService:
         msg.attach(MIMEText(html_body, 'html'))
         
         try:
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
+            # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
+            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 465, timeout=30)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
