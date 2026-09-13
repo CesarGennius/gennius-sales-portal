@@ -163,16 +163,21 @@ class AuthService:
         email = email.strip().lower()
         if email not in db:
             return False, "El correo no está registrado."
+        
         temp_pwd = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
         db[email]["password"] = cls._encrypt_text(temp_pwd)
         db[email]["requiere_cambio_pwd"] = True
         cls._save_db(db)
+        
         config = db[email]["config_env"]
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
         google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
+        
         msg = MIMEMultipart()
-        msg['From'] = remitente; msg['To'] = email
+        msg['From'] = remitente
+        msg['To'] = email
         msg['Subject'] = "Reseteo de Contraseña - Gennius Sales"
+        
         html_body = f"""
         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0f172a; color: #f8fafc;">
           <div style="max-width: 500px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 24px;">
@@ -186,12 +191,16 @@ class AuthService:
         </div>
         """
         msg.attach(MIMEText(html_body, 'html'))
+        
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
-            server.login(remitente, google_pwd); server.sendmail(remitente, [email], msg.as_string()); server.quit()
+            # 🟢 CAMBIO A SMTP_SSL EN PUERTO 465 CON TIMEOUT DE 30s
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
+            server.login(remitente, google_pwd)
+            server.sendmail(remitente, [email], msg.as_string())
+            server.quit()
             return True, "Se ha enviado la contraseña temporal a tu correo."
         except Exception as e:
-            return False, f"Error enviando correo: {str(e)}"
+            return False, f"Error enviando correo via SMTP: {str(e)}"
 
     @classmethod
     def cambiar_password(cls, email: str, nueva_pwd: str):
@@ -209,14 +218,19 @@ class AuthService:
         db = cls._get_db()
         email = email.strip().lower()
         if email not in db: return False, "Usuario no existe."
+        
         config = db[email]["config_env"]
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
         google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
+        
         otp_code = f"{random.randint(100000, 999999)}"
         cls._otps_in_memory[email] = {"code": otp_code, "expires": time.time() + 600}
+        
         msg = MIMEMultipart()
-        msg['From'] = remitente; msg['To'] = email
+        msg['From'] = remitente
+        msg['To'] = email
         msg['Subject'] = f"Código 2FA Gennius: {otp_code}"
+        
         html_body = f"""
         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0f172a; color: #ffffff;">
           <div style="max-width: 480px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 24px;">
@@ -229,9 +243,13 @@ class AuthService:
         </div>
         """
         msg.attach(MIMEText(html_body, 'html'))
+        
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
-            server.login(remitente, google_pwd); server.sendmail(remitente, [email], msg.as_string()); server.quit()
+            # 🟢 CAMBIO A SMTP_SSL EN PUERTO 465
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=30)
+            server.login(remitente, google_pwd)
+            server.sendmail(remitente, [email], msg.as_string())
+            server.quit()
             return True, "Código enviado."
         except Exception as e:
             return False, str(e)

@@ -198,21 +198,20 @@ async function ingresarRapidoPrelogueado() {
   }
 }
 
+// 🟢 4. CERRAR SESIÓN LIMPIO
 function cerrarSesion() {
-  // 1. Ocultar el menú desplegable del avatar
-  const dropdown = document.getElementById('user-dropdown-menu');
-  if (dropdown) dropdown.style.display = 'none';
-
-  // 2. Remover los controles de usuario de la barra de navegación
+  localStorage.removeItem('gennius_session');
+  localStorage.removeItem('user_email');
+  localStorage.clear();
+  sessionStorage.clear();
+  
   const navControls = document.getElementById('nav-user-controls');
   if (navControls) navControls.remove();
-
-  // 3. Mostrar el overlay de autenticación
+  
   const authOverlay = document.getElementById('auth-overlay');
   if (authOverlay) authOverlay.style.display = 'flex';
-
-  // 4. Cargar la tarjeta pre-logueada si la sesión aún no cumple los 7 días
-  comprobarSesionGuardada();
+  
+  mostrarLoginForm();
 }
 
 function mostrarLoginForm() {
@@ -240,13 +239,24 @@ function solicitarResetPassword(event) {
   if (inputEmail) inputEmail.value = loginEmail;
 }
 
+// 🟢 1. RECUPERACIÓN DE CONTRASEÑA CON SPINNER DE CARGA
 async function ejecutarResetPassword() {
   const emailInput = document.getElementById('reset-email-input');
   const email = emailInput ? emailInput.value.trim() : '';
+  const btn = document.getElementById('btn-do-reset');
+  
   if (!email) {
     mostrarMensajeUI("Por favor ingresa tu correo corporativo.");
     return;
   }
+
+  const btnText = btn ? btn.querySelector('.btn-text') : null;
+  const btnSpinner = btn ? btn.querySelector('.btn-spinner') : null;
+
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.style.display = 'none';
+  if (btnSpinner) btnSpinner.style.display = 'inline-block';
+
   try {
     const resp = await fetch('/api/auth/reset-password', {
       method: 'POST',
@@ -258,10 +268,148 @@ async function ejecutarResetPassword() {
       mostrarMensajeUI("¡Listo! Clave temporal enviada al correo.", "success");
       setTimeout(() => mostrarLoginForm(), 3000);
     } else {
-      mostrarMensajeUI(res.message || "No se pudo restablecer.");
+      mostrarMensajeUI(res.message || "No se pudo restablecer la contraseña.");
     }
   } catch (e) {
     mostrarMensajeUI("Error de conexión al solicitar restablecimiento.");
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.style.display = 'inline';
+    if (btnSpinner) btnSpinner.style.display = 'none';
+  }
+}
+
+// 🟢 2. SUBMÓDULO DE CAMBIO DE CORREO EN MI PERFIL
+async function solicitarCambioEmail() {
+  const nuevoEmail = document.getElementById('edit-nuevo-email')?.value.trim();
+  const emailActual = localStorage.getItem('user_email');
+  const btn = document.getElementById('btn-action-email');
+  const wrap2fa = document.getElementById('wrap-step-email-2fa');
+  const code2fa = document.getElementById('code-email-2fa')?.value.trim();
+
+  if (!nuevoEmail) {
+    mostrarMensajeUI("Ingresa el nuevo correo corporativo.");
+    return;
+  }
+
+  if (pasoActualEmail === 1) {
+    if (btn) btn.disabled = true;
+    try {
+      const resp = await fetch('/api/auth/request-email-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_actual: emailActual, nuevo_email: nuevoEmail })
+      });
+      const res = await resp.json();
+      if (res.status === 'success') {
+        pasoActualEmail = 2;
+        if (wrap2fa) wrap2fa.style.display = 'block';
+        if (btn) btn.innerText = "Confirmar Código 2FA";
+        mostrarMensajeUI("Código 2FA enviado a tu correo actual.", "success");
+      } else {
+        mostrarMensajeUI(res.message || "Error al solicitar cambio.");
+      }
+    } catch (e) {
+      mostrarMensajeUI("Error de red al solicitar cambio de correo.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  } else {
+    if (!code2fa || code2fa.length !== 6) {
+      mostrarMensajeUI("Ingresa el código 2FA de 6 dígitos.");
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      const resp = await fetch('/api/auth/confirm-email-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_actual: emailActual, nuevo_email: nuevoEmail, code: code2fa })
+      });
+      const res = await resp.json();
+      if (res.status === 'success') {
+        localStorage.setItem('user_email', nuevoEmail);
+        let session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
+        session.email = nuevoEmail;
+        localStorage.setItem('gennius_session', JSON.stringify(session));
+        
+        mostrarMensajeUI("Correo actualizado con éxito.", "success");
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        mostrarMensajeUI(res.message || "Código incorrecto o no válido.");
+      }
+    } catch (e) {
+      mostrarMensajeUI("Error de red al confirmar correo.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+}
+
+// 🟢 3. SUBMÓDULO DE CAMBIO DE CONTRASEÑA EN MI PERFIL
+async function solicitarCambioPassword() {
+  const p1 = document.getElementById('edit-new-pass-1')?.value.trim();
+  const p2 = document.getElementById('edit-new-pass-2')?.value.trim();
+  const emailActual = localStorage.getItem('user_email');
+  const btn = document.getElementById('btn-action-pass');
+  const wrap2fa = document.getElementById('wrap-step-pass-2fa');
+  const code2fa = document.getElementById('code-pass-2fa')?.value.trim();
+
+  if (!p1 || !p2) {
+    mostrarMensajeUI("Ingresa y confirma la nueva contraseña.");
+    return;
+  }
+  if (p1 !== p2) {
+    mostrarMensajeUI("Las contraseñas no coinciden.");
+    return;
+  }
+
+  if (pasoActualPass === 1) {
+    if (btn) btn.disabled = true;
+    try {
+      const resp = await fetch('/api/auth/request-password-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailActual })
+      });
+      const res = await resp.json();
+      if (res.status === 'success') {
+        pasoActualPass = 2;
+        if (wrap2fa) wrap2fa.style.display = 'block';
+        if (btn) btn.innerText = "Confirmar Cambio de Contraseña";
+        mostrarMensajeUI("Código 2FA enviado a tu correo.", "success");
+      } else {
+        mostrarMensajeUI(res.message || "Error al solicitar cambio.");
+      }
+    } catch (e) {
+      mostrarMensajeUI("Error de red al solicitar código 2FA.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  } else {
+    if (!code2fa || code2fa.length !== 6) {
+      mostrarMensajeUI("Ingresa el código de 6 dígitos.");
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      const resp = await fetch('/api/auth/confirm-password-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailActual, new_password: p1, code: code2fa })
+      });
+      const res = await resp.json();
+      if (res.status === 'success') {
+        mostrarMensajeUI("Contraseña actualizada correctamente.", "success");
+        setTimeout(() => cerrarModal('modal-mi-perfil'), 1500);
+      } else {
+        mostrarMensajeUI(res.message || "Código 2FA incorrecto.");
+      }
+    } catch (e) {
+      mostrarMensajeUI("Error de red al cambiar contraseña.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 }
 
@@ -993,7 +1141,8 @@ function procesarEntradaChips(inputText, targetArray, boxId, inputId) {
 window.abrirModalSelectorAvatar = abrirModalSelectorAvatar;
 window.seleccionarAvatarModal = seleccionarAvatarModal;
 window.confirmarSeleccionAvatar = confirmarSeleccionAvatar;
-
+window.solicitarCambioEmail = solicitarCambioEmail;
+window.solicitarCambioPassword = solicitarCambioPassword;
 window.abrirModalModelosIA = abrirModalModelosIA;
 window.guardarConfiguracionIA = guardarConfiguracionIA;
 window.iniciarSesion = iniciarSesion;
