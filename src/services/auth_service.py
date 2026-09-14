@@ -256,13 +256,30 @@ class AuthService:
         """
         msg.attach(MIMEText(html_body, 'html'))
         
+        # 🟢 Intento híbrido inteligente (SSL 465 -> Fallback TLS 587) sin librerías externas
         try:
-            # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
-            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 587, timeout=15)
-            server.login(remitente, google_pwd)
-            server.sendmail(remitente, [email], msg.as_string())
-            server.quit()
-            return True, "Se ha enviado la contraseña temporal a tu correo."
+            try:
+                # Intento 1: Conexión SSL directa (Puerto 465) con timeout rápido de 7s
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=7)
+                server.login(remitente, google_pwd)
+                server.sendmail(remitente, [email], msg.as_string())
+                server.quit()
+                print("✅ [Reset Password] Correo enviado exitosamente vía SSL (465)")
+                return True, "Se ha enviado la contraseña temporal a tu correo."
+            except Exception as e_ssl:
+                print(f"⚠️ [Reset Password] SSL 465 no disponible ({e_ssl}). Reintentando por TLS 587...")
+                
+                # Intento 2: Conexión con STARTTLS (Puerto 587)
+                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(remitente, google_pwd)
+                server.sendmail(remitente, [email], msg.as_string())
+                server.quit()
+                print("✅ [Reset Password] Correo enviado exitosamente vía STARTTLS (587)")
+                return True, "Se ha enviado la contraseña temporal a tu correo."
+
         except Exception as e:
             print(f"❌ Error enviando correo vía SMTP en reset_password_and_email: {e}")
             return False, f"Error enviando correo via SMTP: {str(e)}"
@@ -312,13 +329,30 @@ class AuthService:
         """
         msg.attach(MIMEText(html_body, 'html'))
         
+        # 🟢 Intento híbrido inteligente (SSL 465 -> Fallback TLS 587) sin librerías externas
         try:
-            # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
-            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 587, timeout=15)
-            server.login(remitente, google_pwd)
-            server.sendmail(remitente, [email], msg.as_string())
-            server.quit()
-            return True, "Código enviado."
+            try:
+                # Intento 1: Conexión SSL directa (Puerto 465) con timeout rápido de 7s
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=7)
+                server.login(remitente, google_pwd)
+                server.sendmail(remitente, [email], msg.as_string())
+                server.quit()
+                print("✅ [2FA] Correo enviado exitosamente vía SSL (465)")
+                return True, "Código enviado."
+            except Exception as e_ssl:
+                print(f"⚠️ [2FA] SSL 465 no disponible ({e_ssl}). Reintentando por TLS 587...")
+                
+                # Intento 2: Conexión con STARTTLS (Puerto 587)
+                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(remitente, google_pwd)
+                server.sendmail(remitente, [email], msg.as_string())
+                server.quit()
+                print("✅ [2FA] Correo enviado exitosamente vía STARTTLS (587)")
+                return True, "Código enviado."
+
         except Exception as e:
             print(f"❌ Error enviando código 2FA: {e}")
             return False, f"Error enviando correo via SMTP: {str(e)}"

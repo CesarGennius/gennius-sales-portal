@@ -1,9 +1,9 @@
 {
   "carodriguez@wearegennius.com": {
-    "password": "gAAAAABqpr2ROkzXm5VAqWZSDQW0-Ifz6maetsBtWZqpTfdsG6tL8mCdLZjNI_tHg5JHZ2M7YE4ABIaiIiogQdrgZXtt6cGJgQ==",
+    "password": "gAAAAABqqFo7BXO3JrqaKqoo5RXDGypS0xb_JJ6cZYMhb0OZ9EmHKp4vh4zwx0Kg3n-xJ9QS2T76YAeRpwD2fpI1w1OaWw9Sjg==",
     "nombre": "C\u00e9sar Augusto",
     "apellido": "Rodr\u00edguez T\u00e9llez",
-    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=eutgokw0&backgroundColor[]=ff8fab&backgroundColor[]=ffb703&backgroundColor[]=4cc9a7&backgroundColor[]=4d96ff&backgroundColor[]=b57bff",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=h3tup8gj&backgroundColor[]=ff8fab&backgroundColor[]=ffb703&backgroundColor[]=4cc9a7&backgroundColor[]=4d96ff&backgroundColor[]=b57bff",
     "es_admin": true,
     "requiere_cambio_pwd": false,
     "config_env": {
