@@ -631,16 +631,59 @@
 .user-admin-badge.admin { background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 .user-admin-badge.user { background-color: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
 
+/* Estilos base del botón Eliminar */
 .btn-delete-user {
   background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;
   border-radius: 6px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
 }
 .btn-delete-user:hover { background-color: #ef4444; color: #ffffff; }
 
+.btn-delete-user .btn-delete-icon {
+  display: none;
+}
+
 @media (max-width: 650px) {
   .gennius-modal-content.responsive-modal {
     width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
     border-radius: 0 !important; border: none !important;
+  }
+
+  .btn-delete-user {
+    padding: 6px 10px !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .btn-delete-user .btn-delete-text {
+    display: none !important;
+  }
+
+  .btn-delete-user .btn-delete-icon {
+    display: inline-block !important;
+    font-size: 1rem !important;
+  }
+}
+
+/* 📱 Corrección de desplazamiento e integridad en móvil para Mi Perfil */
+@media (max-width: 768px) {
+  .gennius-modal-content.wide.responsive-modal {
+    max-height: 92vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .gennius-modal-body {
+    overflow-y: auto !important;
+    padding-bottom: 40px !important; /* Espacio de seguridad inferior */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #btn-save-perfil {
+    margin-bottom: 20px !important;
   }
 }
 

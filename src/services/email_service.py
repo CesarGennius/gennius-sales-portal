@@ -1,5 +1,3 @@
-import socket
-import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -201,32 +199,34 @@ class EmailService:
         msg['Subject'] = sujeto
         msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
 
-        # 🟢 Limpieza de seguridad para la contraseña de aplicación de Google
-        # Elimina espacios en blanco invisibles que Render a veces inyecta
-        pwd_limpia = self.password.replace(" ", "").strip() if self.password else ""
-
         try:
-            # 🟢 Conexión SSL directa en puerto 465 (Compatible con Local y Render)
-            server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20)
-            server.login(self.remitente, pwd_limpia)
-            
-            # Preparamos los destinatarios
+            # 🟢 Preparar lista completa de destinatarios (Incluye BCC si aplica)
             destinatarios_finales = dest + (self.bcc if modo_final else [])
             
-            server.sendmail(self.remitente, destinatarios_finales, msg.as_string())
-            server.quit()
+            # Importar la función que usa la API de Gmail por HTTPS (Puerto 443)
+            from src.services.auth_service import enviar_correo_via_gmail_api
             
-            print("✅ Correo enviado exitosamente vía SMTP SSL")
-            return True, notas_lista
+            # 🟢 Enviar a cada destinatario usando la API REST de Gmail (Evita el bloqueo de puertos de Render)
+            exito_envio = True
+            for destinatario in destinatarios_finales:
+                res = enviar_correo_via_gmail_api(
+                    remitente=self.remitente,
+                    destino=destinatario,
+                    asunto=sujeto,
+                    html_body=cuerpo_html
+                )
+                if not res:
+                    exito_envio = False
 
-        except smtplib.SMTPAuthenticationError as auth_err:
-            # 🟢 Muestra explícitamente en los logs de Render si la clave de Google fue rechazada
-            print(f"❌ ERROR 535 AUTENTICACIÓN GMAIL: La contraseña de aplicación para '{self.remitente}' no es válida en Render. Detalles: {auth_err}")
-            return False, []
-            
+            if exito_envio:
+                print("✅ Correo enviado exitosamente vía Gmail REST API (HTTPS 443)")
+                return True, notas_lista
+            else:
+                print("❌ Falló el envío de correo a uno o más destinatarios vía Gmail API")
+                return False, []
+
         except Exception as e:
-            # 🟢 Imprime el tipo exacto de error (Timeout, ConnectionRefused, etc.) en los logs
-            print(f"❌ ERROR DE SMTP ({type(e).__name__}): {e}")
+            print(f"❌ ERROR ENVIANDO REPORTES ({type(e).__name__}): {e}")
             import traceback
             traceback.print_exc()
             return False, []

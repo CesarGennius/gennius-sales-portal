@@ -3,8 +3,6 @@ import json
 import random
 import time
 import string
-import smtplib
-import socket
 import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -69,28 +67,6 @@ def enviar_correo_via_gmail_api(remitente: str, destino: str, asunto: str, html_
     except Exception as e:
         print(f"❌ Error crítico en Gmail API HTTP: {e}")
         return False
-
-def crear_conexion_smtp_ipv4(host="smtp.gmail.com", port=587, timeout=15):
-    """
-    Conecta vía IPv4 al puerto 587 mediante TLS (STARTTLS).
-    Resuelve bloqueos de puerto 465 y de IPv6 en plataformas como Render.
-    """
-    # 1. Resolver la IP de forma explícita por IPv4 (socket.AF_INET)
-    infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
-    if not infos:
-        raise RuntimeError(f"No se pudo resolver {host} vía IPv4")
-    
-    ip_ipv4 = infos[0][4][0]
-    
-    # 2. Conexión SMTP estándar en puerto 587
-    server = smtplib.SMTP(ip_ipv4, port, timeout=timeout)
-    server.ehlo(host)
-    
-    # 3. Encriptar la conexión vía TLS (STARTTLS)
-    server.starttls()
-    server.ehlo(host)
-    
-    return server
 
 # 🟢 Búsqueda inteligente y dinámica de la llave (Soporta Local y Render Secret Files)
 def _obtener_key_path():

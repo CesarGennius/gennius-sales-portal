@@ -400,15 +400,30 @@ async function ejecutarResetPassword() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
-
+    
     const res = await resp.json();
 
-    if (res.status === 'success') {
-      mostrarMensajeUI("¡Listo! Clave temporal enviada al correo.", "success");
-      if (emailInput) emailInput.value = '';
-      mostrarLoginForm();
+    if (resp.ok && (res.status === 'success' || res.message)) {
+      // 🟢 Inyección de notificación de éxito dentro de la misma tarjeta antes de salir
+      const cardReset = document.getElementById('card-reset-pwd');
+      let msgBox = document.getElementById('reset-success-msg');
+      if (!msgBox) {
+        msgBox = document.createElement('div');
+        msgBox.id = 'reset-success-msg';
+        msgBox.className = 'auth-ui-alert success';
+        msgBox.style.marginTop = '12px';
+        cardReset.appendChild(msgBox);
+      }
+      msgBox.innerHTML = `<span class="alert-dot"></span><span>${res.message || 'Se ha enviado la clave temporal a tu correo.'}</span>`;
+      msgBox.style.display = 'flex';
+
+      setTimeout(() => {
+        if (emailInput) emailInput.value = '';
+        if (msgBox) msgBox.style.display = 'none';
+        mostrarLoginForm();
+      }, 3500);
     } else {
-      mostrarMensajeUI(res.message || "No se pudo restablecer la contraseña.");
+      mostrarMensajeUI(res.message || res.detail || "No se pudo restablecer la contraseña.");
     }
   } catch (e) {
     mostrarMensajeUI("Error de conexión al solicitar restablecimiento.");
@@ -1281,8 +1296,12 @@ async function abrirAdminUsuariosModal() {
             <span class="user-admin-email">${u.email}</span>
             <span class="user-admin-badge ${u.es_admin ? 'admin' : 'user'}">${u.es_admin ? 'Administrador' : 'Usuario'}</span>
           </div>
+          
           <div class="user-admin-actions">
-            <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}')">Eliminar</button>
+            <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}')" title="Eliminar Usuario">
+              <span class="btn-delete-text">Eliminar</span>
+              <span class="btn-delete-icon">🗑️</span>
+            </button>
           </div>
         </div>
       `).join('');
