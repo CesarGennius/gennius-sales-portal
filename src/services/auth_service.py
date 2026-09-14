@@ -16,12 +16,13 @@ ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
 import base64
 import requests
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request  # 🟢 Necesario para refrescar el token
 from src.services.google_sheets_service import obtener_ruta_secret_file
 
 def enviar_correo_via_gmail_api(remitente: str, destino: str, asunto: str, html_body: str) -> bool:
     """
     Envía correos utilizando la API REST de Gmail mediante peticiones HTTPS (Puerto 443).
-    Supera el bloqueo de puertos SMTP (Errno 101 Network is unreachable) en Render.
+    Refresca automáticamente el access token expirado antes de realizar la petición HTTP.
     """
     try:
         ruta_token = obtener_ruta_secret_file("token.json")
@@ -31,6 +32,14 @@ def enviar_correo_via_gmail_api(remitente: str, destino: str, asunto: str, html_
 
         # Cargar credenciales desde el token OAuth existente
         creds = Credentials.from_authorized_user_file(ruta_token)
+
+        # 🟢 VERIFICAR Y REFRESCAR EL TOKEN SI EXPIRÓ
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+                print("🔄 Token de Google refrescado exitosamente.")
+            except Exception as e_ref:
+                print(f"⚠️ Error al refrescar token de Google: {e_ref}")
 
         # Construcción del mensaje en formato MIME/Base64
         msg = MIMEMultipart()
