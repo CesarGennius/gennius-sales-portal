@@ -13,7 +13,53 @@ from cryptography.fernet import Fernet
 USERS_DB_PATH = os.path.join("data", "users_db.json")
 ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
 
-import socket
+import base64
+import requests
+from google.oauth2.credentials import Credentials
+from src.services.google_sheets_service import obtener_ruta_secret_file
+
+def enviar_correo_via_gmail_api(remitente: str, destino: str, asunto: str, html_body: str) -> bool:
+    """
+    Envía correos utilizando la API REST de Gmail mediante peticiones HTTPS (Puerto 443).
+    Supera el bloqueo de puertos SMTP (Errno 101 Network is unreachable) en Render.
+    """
+    try:
+        ruta_token = obtener_ruta_secret_file("token.json")
+        if not os.path.exists(ruta_token):
+            print("❌ No se encontró token.json para la API de Gmail")
+            return False
+
+        # Cargar credenciales desde el token OAuth existente
+        creds = Credentials.from_authorized_user_file(ruta_token)
+
+        # Construcción del mensaje en formato MIME/Base64
+        msg = MIMEMultipart()
+        msg['From'] = remitente
+        msg['To'] = destino
+        msg['Subject'] = asunto
+        msg.attach(MIMEText(html_body, 'html'))
+
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+
+        # Petición HTTPS directa a la API v1 de Gmail (Puerto 443)
+        url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+        headers = {
+            "Authorization": f"Bearer {creds.token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(url, json={"raw": raw_message}, headers=headers, timeout=15)
+
+        if response.status_code in (200, 201):
+            print(f"✅ Correo enviado exitosamente vía Gmail REST API (443) a {destino}")
+            return True
+        else:
+            print(f"❌ Error HTTP Gmail API ({response.status_code}): {response.text}")
+            return False
+
+    except Exception as e:
+        print(f"❌ Error crítico en Gmail API HTTP: {e}")
+        return False
 
 def crear_conexion_smtp_ipv4(host="smtp.gmail.com", port=587, timeout=15):
     """
@@ -231,16 +277,6 @@ class AuthService:
         
         config = db[email].get("config_env", {})
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
-        google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
-        
-        # 🟢 Limpieza de la clave de aplicación de Google para evitar espacios accidentales de Render
-        if google_pwd:
-            google_pwd = google_pwd.replace(" ", "").strip()
-
-        msg = MIMEMultipart()
-        msg['From'] = remitente
-        msg['To'] = email
-        msg['Subject'] = "Reseteo de Contraseña - Gennius Sales"
         
         html_body = f"""
         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0f172a; color: #f8fafc;">
@@ -254,35 +290,16 @@ class AuthService:
           </div>
         </div>
         """
-        msg.attach(MIMEText(html_body, 'html'))
         
-        # 🟢 Intento híbrido inteligente (SSL 465 -> Fallback TLS 587) sin librerías externas
         try:
-            try:
-                # Intento 1: Conexión SSL directa (Puerto 465) con timeout rápido de 7s
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=7)
-                server.login(remitente, google_pwd)
-                server.sendmail(remitente, [email], msg.as_string())
-                server.quit()
-                print("✅ [Reset Password] Correo enviado exitosamente vía SSL (465)")
+            # 🟢 Envío mediante HTTPS (Puerto 443) a la API de Gmail
+            exito = enviar_correo_via_gmail_api(remitente, email, "Reseteo de Contraseña - Gennius Sales", html_body)
+            if exito:
                 return True, "Se ha enviado la contraseña temporal a tu correo."
-            except Exception as e_ssl:
-                print(f"⚠️ [Reset Password] SSL 465 no disponible ({e_ssl}). Reintentando por TLS 587...")
-                
-                # Intento 2: Conexión con STARTTLS (Puerto 587)
-                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(remitente, google_pwd)
-                server.sendmail(remitente, [email], msg.as_string())
-                server.quit()
-                print("✅ [Reset Password] Correo enviado exitosamente vía STARTTLS (587)")
-                return True, "Se ha enviado la contraseña temporal a tu correo."
-
+            return False, "Error enviando correo vía Gmail API."
         except Exception as e:
-            print(f"❌ Error enviando correo vía SMTP en reset_password_and_email: {e}")
-            return False, f"Error enviando correo via SMTP: {str(e)}"
+            print(f"❌ Error enviando correo en reset_password_and_email: {e}")
+            return False, f"Error enviando correo: {str(e)}"
 
     @classmethod
     def cambiar_password(cls, email: str, nueva_pwd: str):
@@ -303,18 +320,9 @@ class AuthService:
         
         config = db[email].get("config_env", {})
         remitente = config.get("REMITENTE") or os.getenv("REMITENTE")
-        google_pwd = cls._decrypt_text(config.get("PASSWORD", "")) or os.getenv("PASSWORD")
         
-        if google_pwd:
-            google_pwd = google_pwd.replace(" ", "").strip()
-
         otp_code = f"{random.randint(100000, 999999)}"
         cls._otps_in_memory[email] = {"code": otp_code, "expires": time.time() + 600}
-        
-        msg = MIMEMultipart()
-        msg['From'] = remitente
-        msg['To'] = email
-        msg['Subject'] = f"Código 2FA Gennius: {otp_code}"
         
         html_body = f"""
         <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0f172a; color: #ffffff;">
@@ -327,35 +335,16 @@ class AuthService:
           </div>
         </div>
         """
-        msg.attach(MIMEText(html_body, 'html'))
         
-        # 🟢 Intento híbrido inteligente (SSL 465 -> Fallback TLS 587) sin librerías externas
         try:
-            try:
-                # Intento 1: Conexión SSL directa (Puerto 465) con timeout rápido de 7s
-                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=7)
-                server.login(remitente, google_pwd)
-                server.sendmail(remitente, [email], msg.as_string())
-                server.quit()
-                print("✅ [2FA] Correo enviado exitosamente vía SSL (465)")
+            # 🟢 Envío mediante HTTPS (Puerto 443) a la API de Gmail
+            exito = enviar_correo_via_gmail_api(remitente, email, f"Código 2FA Gennius: {otp_code}", html_body)
+            if exito:
                 return True, "Código enviado."
-            except Exception as e_ssl:
-                print(f"⚠️ [2FA] SSL 465 no disponible ({e_ssl}). Reintentando por TLS 587...")
-                
-                # Intento 2: Conexión con STARTTLS (Puerto 587)
-                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(remitente, google_pwd)
-                server.sendmail(remitente, [email], msg.as_string())
-                server.quit()
-                print("✅ [2FA] Correo enviado exitosamente vía STARTTLS (587)")
-                return True, "Código enviado."
-
+            return False, "Error enviando correo vía Gmail API."
         except Exception as e:
-            print(f"❌ Error enviando código 2FA: {e}")
-            return False, f"Error enviando correo via SMTP: {str(e)}"
+            print(f"❌ Error procesando 2FA: {e}")
+            return False, str(e)
 
     @classmethod
     def verify_2fa(cls, email: str, code: str):
