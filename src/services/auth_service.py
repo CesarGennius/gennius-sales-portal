@@ -13,21 +13,28 @@ from cryptography.fernet import Fernet
 USERS_DB_PATH = os.path.join("data", "users_db.json")
 ADMIN_EMAILS = ["carodriguez@wearegennius.com", "lcesartellezl@gmail.com"]
 
-def crear_conexion_smtp_ipv4(host="smtp.gmail.com", port=465, timeout=30):
+import socket
+
+def crear_conexion_smtp_ipv4(host="smtp.gmail.com", port=587, timeout=15):
     """
-    Fuerza la resolución DNS por IPv4 (socket.AF_INET) para evitar el error
-    'Errno 101 Network is unreachable' provocado por IPv6 en Render.
+    Conecta vía IPv4 al puerto 587 mediante TLS (STARTTLS).
+    Resuelve bloqueos de puerto 465 y de IPv6 en plataformas como Render.
     """
-    # 1. Obtener la IP IPv4 de smtp.gmail.com
+    # 1. Resolver la IP de forma explícita por IPv4 (socket.AF_INET)
     infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     if not infos:
         raise RuntimeError(f"No se pudo resolver {host} vía IPv4")
     
     ip_ipv4 = infos[0][4][0]
     
-    # 2. Conectar directamente a la IP IPv4 manteniendo la verificación SSL
-    server = smtplib.SMTP_SSL(ip_ipv4, port, timeout=timeout)
-    server.server_hostname = host # Requerido para la validación del certificado SSL
+    # 2. Conexión SMTP estándar en puerto 587
+    server = smtplib.SMTP(ip_ipv4, port, timeout=timeout)
+    server.ehlo(host)
+    
+    # 3. Encriptar la conexión vía TLS (STARTTLS)
+    server.starttls()
+    server.ehlo(host)
+    
     return server
 
 # 🟢 Búsqueda inteligente y dinámica de la llave (Soporta Local y Render Secret Files)
@@ -251,7 +258,7 @@ class AuthService:
         
         try:
             # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
-            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 465, timeout=30)
+            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 587, timeout=15)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
@@ -307,14 +314,14 @@ class AuthService:
         
         try:
             # 🟢 Reemplazar smtplib.SMTP_SSL por la conexión forzada a IPv4
-            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 465, timeout=30)
+            server = crear_conexion_smtp_ipv4('smtp.gmail.com', 587, timeout=15)
             server.login(remitente, google_pwd)
             server.sendmail(remitente, [email], msg.as_string())
             server.quit()
             return True, "Código enviado."
         except Exception as e:
             print(f"❌ Error enviando código 2FA: {e}")
-            return False, str(e)
+            return False, f"Error enviando correo via SMTP: {str(e)}"
 
     @classmethod
     def verify_2fa(cls, email: str, code: str):
