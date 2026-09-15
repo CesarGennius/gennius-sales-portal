@@ -46,6 +46,10 @@ CACHE_PROCESAMIENTO = {
     "whatsapp_url": ""
 }
 
+# Esquema Pydantic para el correo a aprobar
+class ApproveUserSchema(BaseModel):
+    email: str
+
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
@@ -166,10 +170,8 @@ def delete_user_endpoint(email: str):
     exito, msg = AuthService.eliminar_usuario(email)
     return JSONResponse({"status": "success" if exito else "error", "message": msg})
 
-# Esquema para recibir el correo a aprobar
-class ApproveUserSchema(BaseModel):
-    email: str
-
+# 🟢 RUTAS DE APROBACIÓN CORREGIDAS (Aceptan con /api/auth/admin/users/approve y con /admin/users/approve)
+@app.post("/api/auth/admin/users/approve")
 @app.post("/admin/users/approve")
 async def approve_user_endpoint(data: ApproveUserSchema):
     exito, mensaje = AuthService.aprobar_usuario(data.email)
