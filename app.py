@@ -10,6 +10,8 @@ from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from src.services.auth_service import AuthService
 from src.time_manager import TimeManager
@@ -163,6 +165,17 @@ def get_users_endpoint():
 def delete_user_endpoint(email: str):
     exito, msg = AuthService.eliminar_usuario(email)
     return JSONResponse({"status": "success" if exito else "error", "message": msg})
+
+# Esquema para recibir el correo a aprobar
+class ApproveUserSchema(BaseModel):
+    email: str
+
+@app.post("/admin/users/approve")
+async def approve_user_endpoint(data: ApproveUserSchema):
+    exito, mensaje = AuthService.aprobar_usuario(data.email)
+    if not exito:
+        raise HTTPException(status_code=400, detail=mensaje)
+    return {"status": "success", "message": mensaje}
 
 @app.get("/api/auth/get-user-config")
 def get_user_config_endpoint(email: str):
