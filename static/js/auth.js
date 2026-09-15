@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
   comprobarSesionGuardada();
   setupLiveValidation();
   setupChipsListeners();
+
+  document.querySelectorAll('input, form').forEach(el => {
+    el.setAttribute('autocomplete', 'one-time-code'); // Engaña al autocompletado del navegador
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('spellcheck', 'false');
+  });
 });
 
 /* ==========================================================================
@@ -571,6 +577,15 @@ function mostrarMensajeRegUI(mensaje, tipo = 'error') {
 }
 
 async function completarRegistro() {
+  // 🟢 Desactivar autocompletado de navegador de forma forzada en todos los inputs
+  const inputsRegistro = document.querySelectorAll('#form-registro-usuario input');
+  inputsRegistro.forEach(input => {
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('autocapitalize', 'none');
+    input.setAttribute('spellcheck', 'false');
+  });
+
   const email = document.getElementById('reg-email')?.value.trim();
   const password = document.getElementById('reg-password')?.value.trim();
   const geminiKey = document.getElementById('reg-gemini-key')?.value.trim();
@@ -607,7 +622,13 @@ async function completarRegistro() {
   };
 
   const btn = document.getElementById('btn-completar-reg');
+  const btnText = btn ? btn.querySelector('.btn-text') : null;
+  const btnSpinner = btn ? btn.querySelector('.btn-spinner') : null;
+
+  // 🟢 Activa el spinner visual y deshabilita el botón durante la Petición HTTP
   if (btn) btn.disabled = true;
+  if (btnText) btnText.style.display = 'none';
+  if (btnSpinner) btnSpinner.style.display = 'inline-block';
 
   try {
     const resp = await fetch('/api/auth/register', {
@@ -633,7 +654,10 @@ async function completarRegistro() {
   } catch (e) {
     mostrarMensajeRegUI("Error de red al registrar la cuenta.");
   } finally {
+    // 🔄 Restablecer estado visual del botón
     if (btn) btn.disabled = false;
+    if (btnText) btnText.style.display = 'inline';
+    if (btnSpinner) btnSpinner.style.display = 'none';
   }
 }
 
