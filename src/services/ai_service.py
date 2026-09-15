@@ -27,11 +27,10 @@ class GroqVisionProvider(BaseAIProvider):
 
         client = Groq(api_key=api_key)
         
-        # Nombres de modelos para probar si Groq habilita visión en la cuenta
+        # 🟢 Modelos multimodales vigentes en Groq Cloud
         modelos_groq = [
-            "llama-3.2-11b-vision-instruct",
-            "llama-3.2-90b-vision-instruct",
-            "groq/compound"
+            "llama-3.2-90b-vision-preview",
+            "llama-3.2-11b-vision-preview"
         ]
 
         for model in modelos_groq:
@@ -59,7 +58,7 @@ class GroqVisionProvider(BaseAIProvider):
                     print(f"  ✅ [Groq Vision] Éxito en extracción con [{model}]")
                     return res_text
             except Exception as e:
-                print(f"  ⚠️ [Groq Vision] Modelo [{model}] no disponible en la cuenta: {str(e)[:100]}...")
+                print(f"  ⚠️ [Groq Vision] Modelo [{model}] no disponible: {str(e)[:100]}...")
 
         raise RuntimeError("Groq no tiene modelos de Visión/OCR activos en tu cuenta.")
 
@@ -73,7 +72,9 @@ class GeminiVisionProvider(BaseAIProvider):
         from google.genai import types
 
         client = genai.Client(api_key=api_key)
-        modelos_gemini = ['gemini-flash-latest', 'gemini-1.5-pro']
+        
+        # 🟢 Modelos oficiales y estables de Gemini (Elimina aliases deprecados y 503/404)
+        modelos_gemini = ['gemini-2.0-flash', 'gemini-1.5-flash']
 
         for mod in modelos_gemini:
             for intento in range(3):
@@ -91,7 +92,7 @@ class GeminiVisionProvider(BaseAIProvider):
                     err_str = str(e_mod)
                     print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:100]}...")
                     if "503" in err_str or "UNAVAILABLE" in err_str:
-                        time.sleep(1.5)
+                        time.sleep(1.0)
                     else:
                         break
 
