@@ -1292,8 +1292,9 @@ function renderizarListaUsuariosAdmin(usuarios) {
       ? `<span class="user-admin-badge status-pending">Pendiente</span>` 
       : `<span class="user-admin-badge status-active">Activo</span>`;
     
+    // Dentro del .map() que renderiza las tarjetas de los usuarios:
     const btnAprobar = esPendiente ? `
-      <button class="btn-approve-user" onclick="aprobarUsuarioAdmin('${u.email}')" title="Aprobar cuenta">
+      <button class="btn-approve-user" onclick="aprobarUsuarioAdmin('${u.email}', this)" title="Aprobar cuenta">
         <svg class="action-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
@@ -1315,7 +1316,7 @@ function renderizarListaUsuariosAdmin(usuarios) {
         
         <div class="user-admin-actions">
           ${btnAprobar}
-          <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}')" title="Eliminar cuenta">
+          <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}', this)" title="Eliminar cuenta">
             <span class="btn-delete-text">Eliminar</span>
             <svg class="trash-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -1342,41 +1343,111 @@ function filtrarUsuariosAdmin(filtro, btnEl) {
   }
 }
 
-async function aprobarUsuarioAdmin(email) {
+// 🟢 Función para aprobar usuario con spinner individual en el botón
+async function aprobarUsuarioAdmin(email, btnEl) {
+  if (!btnEl) btnEl = event.currentTarget;
+  
+  // Guardar el icono original y desactivar el botón
+  const contenidoOriginal = btnEl.innerHTML;
+  btnEl.disabled = true;
+  btnEl.style.opacity = '0.7';
+  btnEl.style.pointerEvents = 'none';
+  
+  // Inyectar spinner del mismo tamaño (20px)
+  btnEl.innerHTML = `<span class="btn-spinner" style="width: 18px; height: 18px; border-width: 2px; margin: 0;"></span>`;
+
   try {
-    const resp = await fetch(`/api/auth/admin/users/approve`, {
+    const resp = await fetch('/api/auth/admin/users/approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
     const res = await resp.json();
+
     if (resp.ok && res.status === 'success') {
-      if (typeof showErrorToast === 'function') showErrorToast(`Cuenta de ${email} aprobada y notificada por correo.`, "success");
+      if (typeof showErrorToast === 'function') {
+        showErrorToast(`Cuenta de ${email} aprobada y notificada por correo.`, "success");
+      }
+      // Recargar la lista para reflejar el cambio de estado
       abrirAdminUsuariosModal();
     } else {
       mostrarMensajeUI(res.message || "No se pudo aprobar la cuenta.");
+      btnEl.disabled = false;
+      btnEl.style.opacity = '1';
+      btnEl.style.pointerEvents = 'auto';
+      btnEl.innerHTML = contenidoOriginal;
     }
   } catch (e) {
     mostrarMensajeUI("Error de red intentando aprobar usuario.");
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1';
+    btnEl.style.pointerEvents = 'auto';
+    btnEl.innerHTML = contenidoOriginal;
   }
 }
 
-async function eliminarUsuarioAdmin(email) {
-  if (!confirm(`¿Estás seguro de que deseas eliminar la cuenta de ${email}?`)) return;
+// 🟢 Modal de Confirmación Personalizado para Eliminar
+function eliminarUsuarioAdmin(email, btnEl) {
+  if (!btnEl) btnEl = event.currentTarget;
+
+  // Crear la modal de confirmación en la UI si no existe
+  let confirmModal = document.getElementById('modal-confirm-delete');
+  if (!confirmModal) {
+    confirmModal = document.createElement('div');
+    confirmModal.id = 'modal-confirm-delete';
+    confirmModal.className = 'gennius-modal-backdrop';
+    confirmModal.style.zIndex = '10020';
+    document.body.appendChild(confirmModal);
+  }
+
+  confirmModal.innerHTML = `
+    <div class="gennius-modal-content responsive-modal" style="max-width: 420px; text-align: center; padding: 24px;">
+      <div style="font-size: 2.5rem; margin-bottom: 10px;">⚠️</div>
+      <h3 class="auth-sub-title" style="margin-bottom: 8px; color: #f8fafc;">¿Eliminar usuario?</h3>
+      <p class="auth-desc" style="margin-bottom: 20px; color: #94a3b8;">
+        ¿Estás seguro de que deseas eliminar la cuenta <b style="color: #38bdf8;">${email}</b>? Esta acción no se puede deshacer.
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn-gennius-secondary" style="flex: 1; height: 42px;" onclick="cerrarModal('modal-confirm-delete')">
+          Cancelar
+        </button>
+        <button id="btn-confirm-delete-action" class="btn-gennius-primary" style="flex: 1; height: 42px; background-color: #ef4444;" onclick="ejecutarEliminacionUsuario('${email}', this)">
+          <span class="btn-text">Sí, Eliminar</span>
+          <span class="btn-spinner" style="display: none; width: 18px; height: 18px; border-width: 2px;"></span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  confirmModal.style.display = 'flex';
+}
+
+// 🟢 Procesa la eliminación con spinner en el botón del modal y respuesta del servidor
+async function ejecutarEliminacionUsuario(email, btnConfirm) {
+  const btnText = btnConfirm.querySelector('.btn-text');
+  const btnSpinner = btnConfirm.querySelector('.btn-spinner');
+
+  btnConfirm.disabled = true;
+  if (btnText) btnText.style.display = 'none';
+  if (btnSpinner) btnSpinner.style.display = 'inline-block';
 
   try {
     const resp = await fetch(`/api/auth/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
     const res = await resp.json();
-    if (res.status === 'success') {
+
+    if (resp.ok && res.status === 'success') {
+      cerrarModal('modal-confirm-delete');
       if (typeof showErrorToast === 'function') {
         showErrorToast(`Usuario ${email} eliminado.`, "success");
       }
       abrirAdminUsuariosModal();
     } else {
-      mostrarMensajeUI(res.message || "No se pudo eliminar.");
+      mostrarMensajeUI(res.message || "No se pudo eliminar el usuario.");
+      cerrarModal('modal-confirm-delete');
     }
   } catch (e) {
     mostrarMensajeUI("Error de red intentando eliminar.");
+    cerrarModal('modal-confirm-delete');
   }
 }
 
@@ -1547,6 +1618,7 @@ window.mostrarVistaLogin = mostrarVistaLogin;
 window.completarRegistro = completarRegistro;
 window.filtrarUsuariosAdmin = filtrarUsuariosAdmin;
 window.aprobarUsuarioAdmin = aprobarUsuarioAdmin;
+window.ejecutarEliminacionUsuario = ejecutarEliminacionUsuario;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.solicitarResetPassword = solicitarResetPassword;
 window.toggleAmbasPasswords = toggleAmbasPasswords;
