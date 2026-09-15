@@ -27,10 +27,10 @@ class GroqVisionProvider(BaseAIProvider):
 
         client = Groq(api_key=api_key)
         
-        # 🟢 Modelos multimodales vigentes en Groq Cloud
+        # 🟢 Nombres oficiales estables de visión en Groq
         modelos_groq = [
-            "llama-3.2-90b-vision-preview",
-            "llama-3.2-11b-vision-preview"
+            "llama-3.2-11b-vision-instruct",
+            "llama-3.2-90b-vision-instruct"
         ]
 
         for model in modelos_groq:
@@ -73,8 +73,8 @@ class GeminiVisionProvider(BaseAIProvider):
 
         client = genai.Client(api_key=api_key)
         
-        # 🟢 Modelos oficiales y estables de Gemini (Elimina aliases deprecados y 503/404)
-        modelos_gemini = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        # 🟢 Modelos vigentes oficiales en Google AI Studio (Evita 404 / 503)
+        modelos_gemini = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
 
         for mod in modelos_gemini:
             for intento in range(3):
@@ -107,10 +107,9 @@ class HuggingFaceVisionProvider(BaseAIProvider):
         img_pil.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
+        # 🟢 Endpoint Serverless optimizado
         url_hf = "https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct"
-        headers = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
         payload = {
             "inputs": {
@@ -120,15 +119,18 @@ class HuggingFaceVisionProvider(BaseAIProvider):
         }
 
         print("  [Hugging Face] Probando OCR con Qwen2-VL...")
-        res = requests.post(url_hf, headers=headers, json=payload, timeout=20)
-        if res.status_code == 200:
-            out = res.json()
-            texto_hf = out[0].get("generated_text", "") if isinstance(out, list) else str(out)
-            if texto_hf:
-                print("  ✅ [Hugging Face] Éxito en extracción OCR.")
-                return texto_hf
+        try:
+            res = requests.post(url_hf, headers=headers, json=payload, timeout=15)
+            if res.status_code == 200:
+                out = res.json()
+                texto_hf = out[0].get("generated_text", "") if isinstance(out, list) else str(out)
+                if texto_hf:
+                    print("  ✅ [Hugging Face] Éxito en extracción OCR.")
+                    return texto_hf
+        except Exception as e_hf:
+            print(f"  ⚠️ [Hugging Face] Error de red / DNS: {e_hf}")
 
-        raise RuntimeError(f"Hugging Face respondió con error {res.status_code}")
+        raise RuntimeError("Hugging Face no pudo procesar la imagen.")
 
 
 # -------------------------------------------------------------------
@@ -146,10 +148,8 @@ class AIService:
         if img_pil.mode in ("RGBA", "P"):
             img_pil = img_pil.convert("RGB")
 
-        # Modelo predeterminado o activo
         modelo_activo = config_env.get("MODELO_IA_ACTIVO", "gemini").lower()
         
-        # Orden de prioridad: [1º Modelo Activo, 2º Fallbacks]
         orden_ejecucion = []
         if modelo_activo in cls.MAPA_PROVEEDORES:
             orden_ejecucion.append(modelo_activo)

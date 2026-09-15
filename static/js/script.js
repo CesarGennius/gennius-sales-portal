@@ -243,7 +243,7 @@ async function procesarInsumos() {
 }
 
 // ==========================================================================
-// RENDERIZADO DE TABLAS Y EDICIÓN EN TIEMPO REAL
+// RENDERIZADO DE TABLAS Y EDICIÓN EN TIEMPO REAL (ACTUALIZADO)
 // ==========================================================================
 function renderTabla(dataTotal, labelCorte, errorGemini = false) {
   const tbody = document.querySelector('#tabla-resultados tbody');
@@ -254,16 +254,28 @@ function renderTabla(dataTotal, labelCorte, errorGemini = false) {
 
   const programas = ["VLS", "CIBC", "NCB", "FC", "Cuscatlan", "Scotia", "MilesCare LifeMiles"];
   const cortes = ["630am", "1230pm", "630pm"];
+  
+  // 🟢 Detección estricta de corte activa limpia
   const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
+  let idxCorteActual = 0; // 6:30am por defecto
 
-  let idxCorteActual = 2;
-  if (cleanLabel.includes("630am")) idxCorteActual = 0;
-  else if (cleanLabel.includes("1230pm")) idxCorteActual = 1;
+  if (cleanLabel.includes("1230")) {
+    idxCorteActual = 1; // 12:30pm
+  } else if (cleanLabel.includes("630pm")) {
+    idxCorteActual = 2; // 6:30pm
+  } else if (cleanLabel.includes("630am") || cleanLabel.includes("630")) {
+    idxCorteActual = 0; // 6:30am
+  }
 
   let totalTPV = { "630am": 0, "1230pm": 0, "630pm": 0 };
   let totalQ = { "630am": 0, "1230pm": 0, "630pm": 0 };
 
-  const formatNum = (num) => (num === "?" || num === null || num === undefined) ? "?" : Math.round(num).toLocaleString('es-CO');
+  // 🟢 Formateador estricto para mantener números enteros de miles (evita interpretarlos como decimales)
+  const formatNum = (num) => {
+    if (num === "?" || num === null || num === undefined) return "?";
+    const valEntero = typeof num === 'string' ? parseInt(num.replace(/\./g, '').replace(/,/g, ''), 10) : Math.round(num);
+    return isNaN(valEntero) ? "0" : valEntero.toLocaleString('es-CO');
+  };
 
   programas.forEach(prg => {
     let v_tpv = [], v_q = [];
@@ -326,31 +338,20 @@ function renderTabla(dataTotal, labelCorte, errorGemini = false) {
   tbody.innerHTML += rowTotalTPV + rowTotalQ;
 }
 
-// GUARDA CUALQUIER EDICIÓN MANUAL HECHA SOBRE LA TABLA
-async function guardarEdicionTPV(programa, valorEditado, labelCorte) {
-  const valLimpio = valorEditado.replace(/\./g, '').replace(/,/g, '').replace(/\?/g, '').trim();
-  const valNum = parseFloat(valLimpio) || 0.0;
-  
-  const cambios = {};
-  cambios[programa] = valNum;
-
-  try {
-    await fetch('/api/actualizar-cache-tpv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label_corte: labelCorte, cambios_tpv: cambios })
-    });
-  } catch (e) {
-    console.error("Error guardando cambios de TPV:", e);
-  }
-}
-
 function renderTablaONED(dataOned, onedHistorico = {}, labelCorte = "") {
   const cortes = ["630am", "1230pm", "630pm"];
+  
+  // 🟢 Detección estricta de corte activa limpia
   const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
-  let idxCorteActual = 2;
-  if (cleanLabel.includes("630am")) idxCorteActual = 0;
-  else if (cleanLabel.includes("1230pm")) idxCorteActual = 1;
+  let idxCorteActual = 0; // 6:30am por defecto
+
+  if (cleanLabel.includes("1230")) {
+    idxCorteActual = 1; // 12:30pm
+  } else if (cleanLabel.includes("630pm")) {
+    idxCorteActual = 2; // 6:30pm
+  } else if (cleanLabel.includes("630am") || cleanLabel.includes("630")) {
+    idxCorteActual = 0; // 6:30am
+  }
 
   cortes.forEach((k, idx) => {
     const elTok = document.getElementById(`oned-tok-${k}`);
@@ -371,6 +372,25 @@ function renderTablaONED(dataOned, onedHistorico = {}, labelCorte = "") {
       elTx.innerText = "";
     }
   });
+}
+
+// GUARDA CUALQUIER EDICIÓN MANUAL HECHA SOBRE LA TABLA
+async function guardarEdicionTPV(programa, valorEditado, labelCorte) {
+  const valLimpio = valorEditado.replace(/\./g, '').replace(/,/g, '').replace(/\?/g, '').trim();
+  const valNum = parseFloat(valLimpio) || 0.0;
+  
+  const cambios = {};
+  cambios[programa] = valNum;
+
+  try {
+    await fetch('/api/actualizar-cache-tpv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label_corte: labelCorte, cambios_tpv: cambios })
+    });
+  } catch (e) {
+    console.error("Error guardando cambios de TPV:", e);
+  }
 }
 
 // ==========================================================================

@@ -211,8 +211,9 @@ def recuperar_historial_desde_nube(label_corte):
                                 for scan_c_idx in range(min(5, len(fila_scan))):
                                     if fila_scan[scan_c_idx].strip().lower() == prog.lower():
                                         if scan_r_idx < len(valores_columna):
-                                            val_raw = re.sub(r'[^0-9.]', '', str(valores_columna[scan_r_idx]).replace(',', ''))
-                                            tpv_encontrado = float(val_raw) if val_raw else 0.0
+                                            val_raw = str(valores_columna[scan_r_idx]).replace('.', '').replace(',', '').strip()
+                                            val_limpio = re.sub(r'[^0-9]', '', val_raw)
+                                            tpv_encontrado = float(val_limpio) if val_limpio else 0.0
                                         if prog != "MilesCare LifeMiles" and (scan_r_idx + 1) < len(valores_columna):
                                             val_q = re.sub(r'[^0-9]', '', str(valores_columna[scan_r_idx + 1]))
                                             q_encontrado = int(val_q) if val_q else 0
