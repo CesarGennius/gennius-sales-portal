@@ -577,10 +577,10 @@ function mostrarMensajeRegUI(mensaje, tipo = 'error') {
 }
 
 async function completarRegistro() {
-  // 🟢 Desactivar autocompletado de navegador de forma forzada en todos los inputs
+  // 🟢 Desactivar autocompletado de navegador de forma forzada
   const inputsRegistro = document.querySelectorAll('#form-registro-usuario input');
   inputsRegistro.forEach(input => {
-    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('autocomplete', 'one-time-code');
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('autocapitalize', 'none');
     input.setAttribute('spellcheck', 'false');
@@ -625,10 +625,12 @@ async function completarRegistro() {
   const btnText = btn ? btn.querySelector('.btn-text') : null;
   const btnSpinner = btn ? btn.querySelector('.btn-spinner') : null;
 
-  // 🟢 Activa el spinner visual y deshabilita el botón durante la Petición HTTP
+  // 🟢 Activar spinner y ocultar texto del botón durante todo el proceso
   if (btn) btn.disabled = true;
   if (btnText) btnText.style.display = 'none';
   if (btnSpinner) btnSpinner.style.display = 'inline-block';
+
+  let esExitoso = false;
 
   try {
     const resp = await fetch('/api/auth/register', {
@@ -639,14 +641,20 @@ async function completarRegistro() {
     const res = await resp.json();
 
     if (resp.ok && (res.status === 'success' || res.message)) {
+      esExitoso = true; // Marcar como exitoso para mantener el spinner durante el setTimeout
       const msgExito = res.message || "La cuenta fue registrada correctamente. Aprobación pendiente.";
       mostrarMensajeRegUI(msgExito, "success");
 
-      // 🟢 Redirección al formulario de login con mensaje de estado pendiente
+      // 🟢 Mantiene el spinner activo durante los 2.5s antes de la redirección
       setTimeout(() => {
         limpiarFormularioRegistro();
         mostrarVistaLogin();
         mostrarMensajeUI(msgExito, "success");
+
+        // Restablecer botón solo al finalizar la redirección
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.style.display = 'inline';
+        if (btnSpinner) btnSpinner.style.display = 'none';
       }, 2500);
     } else {
       mostrarMensajeRegUI(res.message || res.detail || "No se pudo completar el registro.");
@@ -654,10 +662,12 @@ async function completarRegistro() {
   } catch (e) {
     mostrarMensajeRegUI("Error de red al registrar la cuenta.");
   } finally {
-    // 🔄 Restablecer estado visual del botón
-    if (btn) btn.disabled = false;
-    if (btnText) btnText.style.display = 'inline';
-    if (btnSpinner) btnSpinner.style.display = 'none';
+    // 🔄 Si ocurrió un error, restaurar el botón de inmediato
+    if (!esExitoso) {
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.style.display = 'inline';
+      if (btnSpinner) btnSpinner.style.display = 'none';
+    }
   }
 }
 
