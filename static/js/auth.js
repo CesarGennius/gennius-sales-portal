@@ -101,6 +101,8 @@ async function ingresarRapidoPrelogueado() {
 
         inyectarBotonAdminNav(session);
 
+        mostrarToastBienvenida(session);
+
         const authOverlay = document.getElementById('auth-overlay');
         if (authOverlay) authOverlay.style.display = 'none';
 
@@ -343,6 +345,8 @@ async function autoVerificarOTP() {
       localStorage.setItem('user_email', email);
 
       inyectarBotonAdminNav(session);
+
+      mostrarToastBienvenida(session);
 
       const authOverlay = document.getElementById('auth-overlay');
       if (authOverlay) authOverlay.style.display = 'none';
@@ -613,39 +617,18 @@ async function completarRegistro() {
     });
     const res = await resp.json();
 
-    if (res.status === 'success') {
-      mostrarMensajeRegUI("Cuenta creada. Ingresando...", "success");
-      const sessionResp = await fetch('/api/auth/load-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
-      });
-      const sessionRes = await sessionResp.json();
+    if (resp.ok && (res.status === 'success' || res.message)) {
+      const msgExito = res.message || "La cuenta fue registrada correctamente. Aprobación pendiente.";
+      mostrarMensajeRegUI(msgExito, "success");
 
-      if (sessionRes.status === 'success') {
-        const session = {
-          email,
-          nombre: `${payload.nombre} ${payload.apellido}`.trim() || email,
-          es_admin: false,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.nombre || email)}&background=0284c7&color=fff`,
-          last_2fa: new Date().getTime()
-        };
-        localStorage.setItem('gennius_session', JSON.stringify(session));
-        localStorage.setItem('user_email', email);
-        inyectarBotonAdminNav(session);
-
-        setTimeout(() => {
-          const authOverlay = document.getElementById('auth-overlay');
-          if (authOverlay) authOverlay.style.display = 'none';
-          if (typeof window.iniciarPrecargaBackground === 'function') {
-            window.iniciarPrecargaBackground();
-          }
-        }, 1000);
-      } else {
-        setTimeout(() => mostrarVistaLogin(), 2000);
-      }
+      // 🟢 Redirección al formulario de login con mensaje de estado pendiente
+      setTimeout(() => {
+        limpiarFormularioRegistro();
+        mostrarVistaLogin();
+        mostrarMensajeUI(msgExito, "success");
+      }, 2500);
     } else {
-      mostrarMensajeRegUI(res.message || "No se pudo completar el registro.");
+      mostrarMensajeRegUI(res.message || res.detail || "No se pudo completar el registro.");
     }
   } catch (e) {
     mostrarMensajeRegUI("Error de red al registrar la cuenta.");
@@ -1271,6 +1254,8 @@ async function guardarConfiguracionIA() {
   }
 }
 
+let listaUsuariosCache = [];
+
 async function abrirAdminUsuariosModal() {
   const dropdown = document.getElementById('user-dropdown-menu');
   if (dropdown) dropdown.style.display = 'none';
@@ -1283,33 +1268,96 @@ async function abrirAdminUsuariosModal() {
   try {
     const resp = await fetch('/api/auth/admin/users');
     const data = await resp.json();
-    const usuarios = Array.isArray(data) ? data : (data.users || []);
-
-    if (container && usuarios.length > 0) {
-      container.innerHTML = usuarios.map(u => `
-        <div class="user-admin-card">
-          <div class="user-admin-avatar">
-            <img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre || u.email)}&background=0284c7&color=fff`}" alt="Avatar">
-          </div>
-          <div class="user-admin-details">
-            <span class="user-admin-name">${u.nombre || 'Sin Nombre'} ${u.apellido || ''}</span>
-            <span class="user-admin-email">${u.email}</span>
-            <span class="user-admin-badge ${u.es_admin ? 'admin' : 'user'}">${u.es_admin ? 'Administrador' : 'Usuario'}</span>
-          </div>
-          
-          <div class="user-admin-actions">
-            <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}')" title="Eliminar Usuario">
-              <span class="btn-delete-text">Eliminar</span>
-              <span class="btn-delete-icon">🗑️</span>
-            </button>
-          </div>
-        </div>
-      `).join('');
-    } else if (container) {
-      container.innerHTML = '<div style="text-align:center; padding: 20px; color: #94a3b8;">No hay otras cuentas registradas.</div>';
-    }
+    listaUsuariosCache = Array.isArray(data) ? data : (data.users || []);
+    
+    // Renderizar por defecto 'todos'
+    renderizarListaUsuariosAdmin(listaUsuariosCache);
   } catch (e) {
     if (container) container.innerHTML = '<div style="text-align:center; color:#f87171; padding: 20px;">Error al cargar las cuentas.</div>';
+  }
+}
+
+function renderizarListaUsuariosAdmin(usuarios) {
+  const container = document.getElementById('admin-users-cards-container');
+  if (!container) return;
+
+  if (usuarios.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding: 20px; color: #94a3b8;">No se encontraron cuentas en esta categoría.</div>';
+    return;
+  }
+
+  container.innerHTML = usuarios.map(u => {
+    const esPendiente = u.estado === 'pendiente';
+    const badgeEstado = esPendiente 
+      ? `<span class="user-admin-badge status-pending">Pendiente</span>` 
+      : `<span class="user-admin-badge status-active">Activo</span>`;
+    
+    const btnAprobar = esPendiente ? `
+      <button class="btn-approve-user" onclick="aprobarUsuarioAdmin('${u.email}')" title="Aprobar cuenta">
+        <svg class="action-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </button>` : '';
+
+    return `
+      <div class="user-admin-card">
+        <div class="user-admin-avatar">
+          <img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.nombre || u.email)}&background=0284c7&color=fff`}" alt="Avatar">
+        </div>
+        <div class="user-admin-details">
+          <span class="user-admin-name">${u.nombre || 'Sin Nombre'} ${u.apellido || ''}</span>
+          <span class="user-admin-email">${u.email}</span>
+          <div style="display: flex; gap: 6px; margin-top: 4px; align-items: center;">
+            <span class="user-admin-badge ${u.es_admin ? 'admin' : 'user'}">${u.es_admin ? 'Administrador' : 'Usuario'}</span>
+            ${badgeEstado}
+          </div>
+        </div>
+        
+        <div class="user-admin-actions">
+          ${btnAprobar}
+          <button class="btn-delete-user" onclick="eliminarUsuarioAdmin('${u.email}')" title="Eliminar cuenta">
+            <span class="btn-delete-text">Eliminar</span>
+            <svg class="trash-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filtrarUsuariosAdmin(filtro, btnEl) {
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => btn.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+
+  if (filtro === 'todos') {
+    renderizarListaUsuariosAdmin(listaUsuariosCache);
+  } else {
+    const filtrados = listaUsuariosCache.filter(u => u.estado === filtro);
+    renderizarListaUsuariosAdmin(filtrados);
+  }
+}
+
+async function aprobarUsuarioAdmin(email) {
+  try {
+    const resp = await fetch(`/api/auth/admin/users/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const res = await resp.json();
+    if (resp.ok && res.status === 'success') {
+      if (typeof showErrorToast === 'function') showErrorToast(`Cuenta de ${email} aprobada y notificada por correo.`, "success");
+      abrirAdminUsuariosModal();
+    } else {
+      mostrarMensajeUI(res.message || "No se pudo aprobar la cuenta.");
+    }
+  } catch (e) {
+    mostrarMensajeUI("Error de red intentando aprobar usuario.");
   }
 }
 
@@ -1448,6 +1496,30 @@ function procesarEntradaChips(inputText, targetArray, boxId, inputId) {
   }
 }
 
+function mostrarToastBienvenida(session) {
+  let toast = document.getElementById('welcome-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'welcome-toast';
+    toast.className = 'welcome-toast-container';
+    document.body.appendChild(toast);
+  }
+
+  const avatarUrl = session.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.nombre || 'User')}&background=0284c7&color=fff`;
+  const primerNombre = (session.nombre || 'Usuario').split(' ')[0];
+
+  toast.innerHTML = `
+    <img src="${avatarUrl}" alt="Avatar" class="welcome-avatar">
+    <div class="welcome-text-wrap">
+      <span class="welcome-title">¡Bienvenido de vuelta, ${primerNombre}! 👋</span>
+      <span class="welcome-sub">Sesión sincronizada correctamente</span>
+    </div>
+  `;
+
+  setTimeout(() => toast.classList.add('show'), 300);
+  setTimeout(() => toast.classList.remove('show'), 4500);
+}
+
 /* ==========================================================================
    8. EXPOSICIÓN GLOBAL DE FUNCIONES (WINDOW)
    ========================================================================== */
@@ -1473,6 +1545,8 @@ window.removerChip = removerChip;
 window.mostrarVistaRegistro = mostrarVistaRegistro;
 window.mostrarVistaLogin = mostrarVistaLogin;
 window.completarRegistro = completarRegistro;
+window.filtrarUsuariosAdmin = filtrarUsuariosAdmin;
+window.aprobarUsuarioAdmin = aprobarUsuarioAdmin;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.solicitarResetPassword = solicitarResetPassword;
 window.toggleAmbasPasswords = toggleAmbasPasswords;

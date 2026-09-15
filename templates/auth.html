@@ -448,15 +448,22 @@
   </div>
 </div>
 
-<!-- MODAL 2: GESTIONAR USUARIOS (DISEÑO TARJETAS MODERNAS) -->
+<!-- MODAL GESTIONAR USUARIOS -->
 <div id="modal-admin-usuarios" class="gennius-modal-backdrop" style="display: none;">
   <div class="gennius-modal-content wide">
     <div class="gennius-modal-header">
       <h3 class="auth-sub-title">Gestión de Cuentas / Usuarios</h3>
       <span class="gennius-close-btn" onclick="cerrarModal('modal-admin-usuarios')">&times;</span>
     </div>
+    
     <div class="gennius-modal-body">
-      <!-- Contenedor dinámico en cuadrícula -->
+      <!-- 🟢 Tabs de Filtro Rápido -->
+      <div class="admin-user-tabs">
+        <button class="admin-tab-btn active" onclick="filtrarUsuariosAdmin('todos', this)">Todos</button>
+        <button class="admin-tab-btn" onclick="filtrarUsuariosAdmin('pendiente', this)">Pendientes</button>
+        <button class="admin-tab-btn" onclick="filtrarUsuariosAdmin('activo', this)">Activos</button>
+      </div>
+
       <div id="admin-users-cards-container" class="admin-users-grid">
         <!-- Tarjetas inyectadas vía JS -->
       </div>

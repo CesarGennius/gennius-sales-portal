@@ -631,15 +631,161 @@
 .user-admin-badge.admin { background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 .user-admin-badge.user { background-color: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
 
-/* Estilos base del botón Eliminar */
+/* Botón de eliminar minimalista y transparente */
 .btn-delete-user {
-  background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;
-  border-radius: 6px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  background: transparent !important;
+  border: none !important;
+  color: #ef4444 !important; /* Rojo profesional */
+  padding: 6px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
 }
-.btn-delete-user:hover { background-color: #ef4444; color: #ffffff; }
 
-.btn-delete-user .btn-delete-icon {
-  display: none;
+/* Efecto hover suave */
+.btn-delete-user:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important; /* Fondo rojo ultra tenue al pasar el cursor */
+  color: #f87171 !important;
+  transform: scale(1.05);
+}
+
+/* Tamaño y comportamiento del SVG */
+.btn-delete-user .trash-icon-svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Badges de Estado */
+.user-admin-badge.status-active {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.user-admin-badge.status-pending {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Botón de Aprobar transparente con Checkmark Verde */
+.btn-approve-user {
+  background: transparent !important;
+  border: none !important;
+  color: #10b981 !important;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-approve-user:hover {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  transform: scale(1.1);
+}
+
+.btn-approve-user .action-icon-svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+/* Toast Flotante de Bienvenida */
+.welcome-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #1e293b;
+  border: 1px solid #0284c7;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  z-index: 10010;
+  opacity: 0;
+  transform: translateY(-20px) scale(0.95);
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+}
+
+.welcome-toast-container.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.welcome-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #38bdf8;
+}
+
+.welcome-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.welcome-sub {
+  font-size: 0.75rem;
+  color: #38bdf8;
+}
+
+/* Tabs de Filtro Admin */
+.admin-user-tabs {
+  display: flex;
+  gap: 6px;
+  background-color: #0f172a;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  margin-bottom: 12px;
+}
+
+.admin-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-tab-btn.active {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .welcome-toast-container {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 650px) {
@@ -648,23 +794,19 @@
     border-radius: 0 !important; border: none !important;
   }
 
-  .btn-delete-user {
-    padding: 6px 10px !important;
-    border-radius: 50% !important;
-    width: 36px !important;
-    height: 36px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
+  /* Oculta el texto "Eliminar" en teléfonos */
   .btn-delete-user .btn-delete-text {
     display: none !important;
   }
 
-  .btn-delete-user .btn-delete-icon {
-    display: inline-block !important;
-    font-size: 1rem !important;
+  /* Mantiene solo la papelera roja sin bordes raros */
+  .btn-delete-user {
+    padding: 8px !important;
+  }
+
+  .btn-delete-user .trash-icon-svg {
+    width: 22px;
+    height: 22px;
   }
 }
 

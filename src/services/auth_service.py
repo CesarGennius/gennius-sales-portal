@@ -167,7 +167,12 @@ class AuthService:
         email = user_data.get("email", "").strip().lower()
         if not email:
             return False, "El correo electrónico es obligatorio."
+        
+        # 🟢 Verificación de cuenta existente y su estado
         if email in db:
+            estado_actual = db[email].get("estado", "activo")
+            if estado_actual == "pendiente":
+                return False, "Esta cuenta ya se encuentra registrada, pero aún está pendiente de aprobación por el administrador."
             return False, "Este correo ya se encuentra registrado."
 
         password = user_data.get("password", "")
@@ -181,15 +186,19 @@ class AuthService:
 
         es_admin = email in [a.lower() for a in ADMIN_EMAILS]
         
+        # Los administradores quedan activos automáticamente; los demás entran en pendiente
+        estado_inicial = "activo" if es_admin else "pendiente"
+
         nombre_completo = f"{user_data.get('nombre', '')} {user_data.get('apellido', '')}".strip() or email
         avatar_defecto = user_data.get("avatar") or f"https://api.dicebear.com/7.x/adventurer/svg?seed={email.split('@')[0]}&backgroundColor=ff8fab,ffb703,4cc9a7,4d96ff,b57bff"
-
+        
         db[email] = {
             "password": cls._encrypt_text(password),
             "nombre": user_data.get("nombre", ""),
             "apellido": user_data.get("apellido", ""),
             "avatar": avatar_defecto,
             "es_admin": es_admin,
+            "estado": estado_inicial,  # 🟢 ESTADO DE APROBACIÓN
             "requiere_cambio_pwd": False,
             "config_env": {
                 "MODELO_IA_ACTIVO": "gemini",
@@ -208,7 +217,7 @@ class AuthService:
             }
         }
         cls._save_db(db)
-        return True, "Cuenta registrada exitosamente."
+        return True, "La cuenta fue registrada correctamente. Aprobación pendiente."
 
     @classmethod
     def verify_credentials(cls, email: str, password: str):
@@ -217,10 +226,51 @@ class AuthService:
         msg_error = "Correo o contraseña incorrectos."
         if email not in db:
             return False, msg_error, None
+        
+        # 🟢 Control de acceso por estado de aprobación
+        if db[email].get("estado") == "pendiente":
+            return False, "Tu cuenta aún no ha sido aprobada por el administrador.", None
+
         pwd_desencriptada = cls._decrypt_text(db[email]["password"])
         if pwd_desencriptada != password:
             return False, msg_error, None
         return True, "Credenciales válidas.", db[email]
+
+    @classmethod
+    def aprobar_usuario(cls, email: str):
+        """🟢 Aprueba el usuario en DB y le envía un correo institucional con botón al Login"""
+        db = cls._get_db()
+        email = email.strip().lower()
+        if email not in db:
+            return False, "Usuario no existe."
+        
+        db[email]["estado"] = "activo"
+        cls._save_db(db)
+
+        # Envío de correo de notificación HTTPS via Gmail API
+        remitente = os.getenv("REMITENTE") or ADMIN_EMAILS[0]
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; padding: 24px; background-color: #0f172a; color: #ffffff;">
+          <div style="max-width: 520px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 28px;">
+            <h2 style="color: #38bdf8; margin-top: 0;">¡Cuenta Aprobada! 🎉</h2>
+            <p style="font-size: 15px; color: #cbd5e1; line-height: 1.5;">
+              Tu registro en el portal <b>Gennius Sales</b> ha sido revisado y aprobado con éxito. Ya puedes acceder con tu correo y contraseña.
+            </p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://gennius-sales-portal.onrender.com" style="background-color: #0284c7; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 15px; border-radius: 8px; display: inline-block;">
+                Iniciar Sesión Ahora
+              </a>
+            </div>
+            <p style="font-size: 12px; color: #64748b; text-align: center;"> Si no reconoces este registro, por favor ignora este correo.</p>
+          </div>
+        </div>
+        """
+        try:
+            enviar_correo_via_gmail_api(remitente, email, "¡Tu cuenta en Gennius Sales ha sido aprobada!", html_body)
+        except Exception as e:
+            print(f"⚠️ Usuario aprobado pero falló notificación por correo: {e}")
+
+        return True, "Usuario aprobado exitosamente."
 
     @classmethod
     def cargar_config_memoria(cls, email: str):
@@ -351,7 +401,8 @@ class AuthService:
                 "nombre": u.get("nombre"),
                 "apellido": u.get("apellido"),
                 "avatar": u.get("avatar"),
-                "es_admin": u.get("es_admin", False)
+                "es_admin": u.get("es_admin", False),
+                "estado": u.get("estado", "activo") # 🟢 Exponer estado
             })
         return lista
 
