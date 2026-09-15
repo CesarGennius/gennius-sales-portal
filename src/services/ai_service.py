@@ -27,10 +27,10 @@ class GroqVisionProvider(BaseAIProvider):
 
         client = Groq(api_key=api_key)
         
-        # 🟢 Nombres oficiales estables de visión en Groq
+        # 🟢 Identificadores compatibles en el API de Groq
         modelos_groq = [
-            "llama-3.2-11b-vision-instruct",
-            "llama-3.2-90b-vision-instruct"
+            "llama-3.2-11b-vision-preview",
+            "llama-3.2-90b-vision-preview"
         ]
 
         for model in modelos_groq:
@@ -73,11 +73,11 @@ class GeminiVisionProvider(BaseAIProvider):
 
         client = genai.Client(api_key=api_key)
         
-        # 🟢 Modelos vigentes oficiales en Google AI Studio (Evita 404 / 503)
-        modelos_gemini = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+        # 🟢 Modelos estándar del SDK google-genai
+        modelos_gemini = ['gemini-2.0-flash', 'gemini-1.5-flash']
 
         for mod in modelos_gemini:
-            for intento in range(3):
+            for intento in range(2):
                 try:
                     print(f"  [Gemini Vision] Probando OCR con [{mod}] (Intento {intento + 1})...")
                     respuesta = client.models.generate_content(
@@ -90,7 +90,7 @@ class GeminiVisionProvider(BaseAIProvider):
                         return respuesta.text
                 except Exception as e_mod:
                     err_str = str(e_mod)
-                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:100]}...")
+                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:120]}...")
                     if "503" in err_str or "UNAVAILABLE" in err_str:
                         time.sleep(1.0)
                     else:
@@ -107,20 +107,17 @@ class HuggingFaceVisionProvider(BaseAIProvider):
         img_pil.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-        # 🟢 Endpoint Serverless optimizado
-        url_hf = "https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct"
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        # 🟢 Endpoint Serverless
+        url_hf = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+        headers = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
-        payload = {
-            "inputs": {
-                "image": f"data:image/jpeg;base64,{img_str}",
-                "prompt": prompt
-            }
-        }
+        payload = {"inputs": f"data:image/jpeg;base64,{img_str}"}
 
-        print("  [Hugging Face] Probando OCR con Qwen2-VL...")
+        print("  [Hugging Face] Probando OCR de respaldo...")
         try:
-            res = requests.post(url_hf, headers=headers, json=payload, timeout=15)
+            res = requests.post(url_hf, headers=headers, json=payload, timeout=12)
             if res.status_code == 200:
                 out = res.json()
                 texto_hf = out[0].get("generated_text", "") if isinstance(out, list) else str(out)
