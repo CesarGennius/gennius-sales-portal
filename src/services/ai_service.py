@@ -14,6 +14,42 @@ class BaseAIProvider(ABC):
         pass
 
 
+class GeminiVisionProvider(BaseAIProvider):
+    def extraer_texto_de_imagen(self, img_pil: Image.Image, prompt: str, api_key: str) -> str:
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY no configurada.")
+
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        
+        # 🟢 Modelos OFICIALES y garantizados en Google AI Studio (SDK google-genai)
+        modelos_gemini = ['gemini-1.5-flash', 'gemini-1.5-pro']
+
+        for mod in modelos_gemini:
+            for intento in range(2):
+                try:
+                    print(f"  [Gemini Vision] Probando OCR con [{mod}] (Intento {intento + 1})...")
+                    respuesta = client.models.generate_content(
+                        model=mod,
+                        contents=[prompt, img_pil],
+                        config=types.GenerateContentConfig(temperature=0.0)
+                    )
+                    if respuesta and respuesta.text:
+                        print(f"  ✅ [Gemini Vision] Éxito en extracción con [{mod}]")
+                        return respuesta.text
+                except Exception as e_mod:
+                    err_str = str(e_mod)
+                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:120]}...")
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                        time.sleep(1.0)
+                    else:
+                        break
+
+        raise RuntimeError("Gemini Vision no pudo procesar la imagen con las credenciales dadas.")
+
+
 class GroqVisionProvider(BaseAIProvider):
     def extraer_texto_de_imagen(self, img_pil: Image.Image, prompt: str, api_key: str) -> str:
         if not api_key:
@@ -27,12 +63,8 @@ class GroqVisionProvider(BaseAIProvider):
 
         client = Groq(api_key=api_key)
         
-        # 🟢 Modelos multimodales vigentes en Groq (se eliminaron los sufijos -preview descontinuados)
-        modelos_groq = [
-            "llama-3.2-11b-vision-instruct",
-            "llama-3.2-90b-vision-instruct",
-            "llama-3.3-70b-versatile"
-        ]
+        # Modelos de visión activos en la plataforma de Groq
+        modelos_groq = ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
 
         for model in modelos_groq:
             try:
@@ -61,87 +93,7 @@ class GroqVisionProvider(BaseAIProvider):
             except Exception as e:
                 print(f"  ⚠️ [Groq Vision] Modelo [{model}] no disponible: {str(e)[:100]}...")
 
-        raise RuntimeError("Groq no tiene modelos de Visión/OCR activos en tu cuenta.")
-
-
-class GeminiVisionProvider(BaseAIProvider):
-    def extraer_texto_de_imagen(self, img_pil: Image.Image, prompt: str, api_key: str) -> str:
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY no configurada.")
-
-        from google import genai
-        from google.genai import types
-
-        client = genai.Client(api_key=api_key)
-        
-        # 🟢 Modelos vigentes oficiales de Gemini (se actualizó a gemini-2.5 y modelos estables)
-        modelos_gemini = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash-latest']
-
-        for mod in modelos_gemini:
-            for intento in range(2):
-                try:
-                    print(f"  [Gemini Vision] Probando OCR con [{mod}] (Intento {intento + 1})...")
-                    respuesta = client.models.generate_content(
-                        model=mod,
-                        contents=[prompt, img_pil],
-                        config=types.GenerateContentConfig(temperature=0.0)
-                    )
-                    if respuesta and respuesta.text:
-                        print(f"  ✅ [Gemini Vision] Éxito en extracción con [{mod}]")
-                        return respuesta.text
-                except Exception as e_mod:
-                    err_str = str(e_mod)
-                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:100]}...")
-                    if "503" in err_str or "UNAVAILABLE" in err_str:
-                        time.sleep(1.0)
-                    else:
-                        break
-
-        raise RuntimeError("Gemini Vision no pudo procesar la imagen.")
-
-
-class HuggingFaceVisionProvider(BaseAIProvider):
-    def extraer_texto_de_imagen(self, img_pil: Image.Image, prompt: str, api_key: str) -> str:
-        import requests
-
-        buffered = io.BytesIO()
-        img_pil.save(buffered, format="JPEG")
-        img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-        # 🟢 Endpoint de la API de Inferencia de Hugging Face
-        url_hf = "https://router.huggingface.co/hf-inference/v1/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        payload = {
-            "model": "Salesforce/blip-image-captioning-large",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}}
-                    ]
-                }
-            ],
-            "max_tokens": 500
-        }
-
-        print("  [Hugging Face] Probando OCR de respaldo...")
-        try:
-            res = requests.post(url_hf, headers=headers, json=payload, timeout=12)
-            if res.status_code == 200:
-                out = res.json()
-                if "choices" in out and len(out["choices"]) > 0:
-                    texto_hf = out["choices"][0]["message"]["content"]
-                    if texto_hf:
-                        print("  ✅ [Hugging Face] Éxito en extracción OCR.")
-                        return texto_hf
-        except Exception as e_hf:
-            print(f"  ⚠️ [Hugging Face] Error de red / DNS: {e_hf}")
-
-        raise RuntimeError("Hugging Face no pudo procesar la imagen.")
+        raise RuntimeError("Groq no pudo procesar la imagen.")
 
 
 # -------------------------------------------------------------------
@@ -150,8 +102,7 @@ class HuggingFaceVisionProvider(BaseAIProvider):
 class AIService:
     MAPA_PROVEEDORES = {
         "gemini": ("Gemini", GeminiVisionProvider(), "GEMINI_API_KEY"),
-        "groq": ("Groq", GroqVisionProvider(), "GROQ_API_KEY"),
-        "huggingface": ("HuggingFace", HuggingFaceVisionProvider(), "HF_API_KEY")
+        "groq": ("Groq", GroqVisionProvider(), "GROQ_API_KEY")
     }
 
     @classmethod
@@ -188,4 +139,4 @@ class AIService:
                 print(f"🔄 [AIService Fallback] {msg_err}. Intentando con otro proveedor...")
                 errores.append(msg_err)
 
-        raise RuntimeError(f"No se pudo extraer la información con ningún modelo de IA configurado. Detalles: {' | '.join(errores)}")
+        raise RuntimeError(f"No se pudo extraer la información con ningún modelo configurado. Detalles: {' | '.join(errores)}")
