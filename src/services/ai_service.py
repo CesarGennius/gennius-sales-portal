@@ -27,10 +27,11 @@ class GroqVisionProvider(BaseAIProvider):
 
         client = Groq(api_key=api_key)
         
-        # 🟢 Identificadores compatibles en el API de Groq
+        # 🟢 Modelos multimodales vigentes en Groq (se eliminaron los sufijos -preview descontinuados)
         modelos_groq = [
-            "llama-3.2-11b-vision-preview",
-            "llama-3.2-90b-vision-preview"
+            "llama-3.2-11b-vision-instruct",
+            "llama-3.2-90b-vision-instruct",
+            "llama-3.3-70b-versatile"
         ]
 
         for model in modelos_groq:
@@ -73,8 +74,8 @@ class GeminiVisionProvider(BaseAIProvider):
 
         client = genai.Client(api_key=api_key)
         
-        # 🟢 Modelos estándar del SDK google-genai
-        modelos_gemini = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        # 🟢 Modelos vigentes oficiales de Gemini (se actualizó a gemini-2.5 y modelos estables)
+        modelos_gemini = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash-latest']
 
         for mod in modelos_gemini:
             for intento in range(2):
@@ -90,7 +91,7 @@ class GeminiVisionProvider(BaseAIProvider):
                         return respuesta.text
                 except Exception as e_mod:
                     err_str = str(e_mod)
-                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:120]}...")
+                    print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:100]}...")
                     if "503" in err_str or "UNAVAILABLE" in err_str:
                         time.sleep(1.0)
                     else:
@@ -107,23 +108,36 @@ class HuggingFaceVisionProvider(BaseAIProvider):
         img_pil.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-        # 🟢 Endpoint Serverless
-        url_hf = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
-        headers = {}
+        # 🟢 Endpoint de la API de Inferencia de Hugging Face
+        url_hf = "https://router.huggingface.co/hf-inference/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        payload = {"inputs": f"data:image/jpeg;base64,{img_str}"}
+        payload = {
+            "model": "Salesforce/blip-image-captioning-large",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}}
+                    ]
+                }
+            ],
+            "max_tokens": 500
+        }
 
         print("  [Hugging Face] Probando OCR de respaldo...")
         try:
             res = requests.post(url_hf, headers=headers, json=payload, timeout=12)
             if res.status_code == 200:
                 out = res.json()
-                texto_hf = out[0].get("generated_text", "") if isinstance(out, list) else str(out)
-                if texto_hf:
-                    print("  ✅ [Hugging Face] Éxito en extracción OCR.")
-                    return texto_hf
+                if "choices" in out and len(out["choices"]) > 0:
+                    texto_hf = out["choices"][0]["message"]["content"]
+                    if texto_hf:
+                        print("  ✅ [Hugging Face] Éxito en extracción OCR.")
+                        return texto_hf
         except Exception as e_hf:
             print(f"  ⚠️ [Hugging Face] Error de red / DNS: {e_hf}")
 
