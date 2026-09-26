@@ -838,17 +838,33 @@ async function abrirMiPerfilModal() {
       document.getElementById('edit-sheet-id').value = u.sheet_id || '';
       document.getElementById('edit-gid-hoja').value = u.gid_hoja || '0';
 
-      // En static/js/auth.js dentro de abrirMiPerfilModal:
-      editFinalesChips = Array.isArray(u.destinatarios_finales) 
-        ? [...u.destinatarios_finales] 
-        : (u.destinatarios_finales || '').split(',').map(s => s.trim()).filter(Boolean);
+      // 🟢 CARGA GARANTIZADA DE ARREGLOS DE CHIPS DE PERFIL
+      const rawFinales = u.destinatarios_finales;
+      if (Array.isArray(rawFinales)) {
+        editFinalesChips = [...rawFinales];
+      } else if (typeof rawFinales === 'string' && rawFinales.trim()) {
+        editFinalesChips = rawFinales.split(',').map(s => s.trim()).filter(Boolean);
+      } else {
+        editFinalesChips = [];
+      }
 
-      editBccChips = Array.isArray(u.destinatarios_bcc) 
-        ? [...u.destinatarios_bcc] 
-        : (u.destinatarios_bcc || '').split(',').map(s => s.trim()).filter(Boolean);
+      const rawBcc = u.destinatarios_bcc;
+      if (Array.isArray(rawBcc)) {
+        editBccChips = [...rawBcc];
+      } else if (typeof rawBcc === 'string' && rawBcc.trim()) {
+        editBccChips = rawBcc.split(',').map(s => s.trim()).filter(Boolean);
+      } else {
+        editBccChips = [];
+      }
 
+      // 🟢 Vincular eventos keydown, paste y blur sobre los inputs del modal de perfil
+      setupChipInput('edit-input-finales', 'edit-chips-finales-box', editFinalesChips);
+      setupChipInput('edit-input-bcc', 'edit-chips-bcc-box', editBccChips);
+
+      // 🟢 Renderizar los chips visualmente en los dos contenedores
       renderChips('edit-chips-finales-box', 'edit-input-finales', editFinalesChips);
       renderChips('edit-chips-bcc-box', 'edit-input-bcc', editBccChips);
+
       renderAvatarPicker(u.avatar || session.avatar);
     }
   } catch (e) {
@@ -1530,13 +1546,14 @@ function renderChips(boxId, inputId, targetArray) {
   const inputEl = document.getElementById(inputId);
   if (!container || !inputEl) return;
 
+  // 🟢 ELIMINAR TODOS LOS CHIPS PREVIOS SIN BORRAR EL INPUT
   const chipsExistentes = container.querySelectorAll('.chip-item');
   chipsExistentes.forEach(chip => chip.remove());
 
   targetArray.forEach((email, index) => {
     const chipNode = document.createElement('div');
     chipNode.className = 'chip-item';
-    
+
     const labelSpan = document.createElement('span');
     labelSpan.textContent = email;
 
@@ -1554,6 +1571,7 @@ function renderChips(boxId, inputId, targetArray) {
     chipNode.appendChild(btnRemove);
     container.insertBefore(chipNode, inputEl);
   });
+
   inputEl.value = '';
 }
 
