@@ -105,19 +105,20 @@ class EmailService:
                     </div>
                     """
                 else:
-                    items_html = "".join([
-                        f"<li style='margin-bottom: 4px; list-style: none; {estilo_texto_negro}'> Para el programa <b>{pa['prog']}</b> hay 0 reservas confirmadas; sin embargo, se { 'evidencia' if pa['quos'] == 1 else 'evidencian' } <b>{pa['quos']}</b> { 'reserva' if pa['quos'] == 1 else 'reservas' } en estado QUO.</li>"
-                        for pa in programas_alertas
-                    ])
+                    # 🟢 REDACCIÓN UNIFICADA PROFESIONAL EN EL HTML
+                    listado_partes = []
+                    for pa in programas_alertas:
+                        s_cant = f"{pa['quos']} {'reserva' if pa['quos'] == 1 else 'reservas'}"
+                        listado_partes.append(f"<b>{s_cant}</b> en estado QUO para <b>{pa['prog']}</b>")
+                    
+                    if len(listado_partes) > 1:
+                        texto_programas = ", ".join(listado_partes[:-1]) + " y " + listado_partes[-1]
+                    else:
+                        texto_programas = listado_partes[0]
 
                     texto_interno = f"""
                     <div style="{estilo_contenedor}">
-                        <div style="margin-bottom: 6px; {estilo_texto_negro}">
-                            <b style="{estilo_titulo}"> Nota importante:</b> En el corte de las {rango_txt} se reporta lo siguiente:
-                        </div>
-                        <ul style='margin: 0; padding: 0; list-style: none;'>
-                            {items_html}
-                        </ul>
+                        <span style="{estilo_texto_negro}"><b style="{estilo_titulo}"> Nota importante:</b> En el corte de las {rango_txt} se reporta que, para los siguientes programas hay 0 reservas confirmadas; sin embargo, se evidencian {texto_programas}.</span>
                     </div>
                     """
 

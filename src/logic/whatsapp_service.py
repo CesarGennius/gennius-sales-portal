@@ -1,7 +1,6 @@
 import urllib.parse
 import os
 
-
 class WhatsAppService:
     # Contenedores temporales en memoria para consolidar el reporte final
     _alertas_quo_cache = []
@@ -16,7 +15,6 @@ class WhatsAppService:
     @classmethod
     def acumular_alerta_oned(cls, metrica_falla, val_anterior, val_actual):
         """Guarda en memoria las anomalías de ONED detectadas en la UI"""
-        # 🟢 REGLA DE NEGOCIO ESTRICTA: Solo alerta si el valor del corte ACTUAL cae a cero
         try:
             cifra_actual = float(str(val_actual).replace('.', '').replace(',', '').strip()) if val_actual else 0.0
         except (ValueError, TypeError):
@@ -31,7 +29,7 @@ class WhatsAppService:
     def generar_mensaje_unificado(cls, label_corte):
         """
         Toma todas las anomalías acumuladas (QUOs + ONED) en el corte actual
-        y unifica el texto según las reglas de negocio exactas.
+        y unifica el texto según las reglas de negocio exactas de forma profesional.
         """
         if not cls._alertas_quo_cache and not cls._alertas_oned_cache:
             return None
@@ -39,48 +37,76 @@ class WhatsAppService:
         clean_label = label_corte.replace(":", "").lower().replace(" ", "")
         saludo = "Buenos días" if "630am" in clean_label else "Buenas tardes"
         link_oned = "*ONED* (oned.global/#/)"
-        
+
+        rango_txt = {
+            "630am": "6:30 p. m. del día de ayer y las 6:30 a. m. del día de hoy",
+            "1230pm": "6:30 a. m. y las 12:30 p. m. del día de hoy",
+            "630pm": "12:30 p. m. y las 6:30 p. m. del día de hoy"
+        }.get(clean_label, label_corte)
+
         es_caso_mixto = bool(cls._alertas_quo_cache and cls._alertas_oned_cache)
         cantidad_oned = len(cls._alertas_oned_cache)
 
-        # --- BLOQUE 1: INTRODUCCIÓN DINÁMICA ---
-        if es_caso_mixto:
-            mensaje = f"{saludo}, reporto que en el corte reciente de las *{label_corte}* se identificaron novedades tanto en el volumen de ventas como en las métricas de la plataforma {link_oned}.\n\n"
-        elif cls._alertas_quo_cache:
+        # 🟢 AUXILIAR: Construye la frase fluida de programas con QUO
+        partes_quo = []
+        for p in cls._alertas_quo_cache:
+            cant = int(p['quos'])
+            s_res = "reserva" if cant == 1 else "reservas"
+            partes_quo.append(f"*{cant}* {s_res} en estado *QUO* para *{p['prog']}*")
+
+        if len(partes_quo) > 1:
+            texto_quo_fluido = ", ".join(partes_quo[:-1]) + " y " + partes_quo[-1]
+        elif len(partes_quo) == 1:
+            texto_quo_fluido = partes_quo[0]
+        else:
+            texto_quo_fluido = ""
+
+        # --- CASO 1: SOLO ALERTAS DE QUO ---
+        if cls._alertas_quo_cache and not cls._alertas_oned_cache:
             if len(cls._alertas_quo_cache) == 1:
                 p = cls._alertas_quo_cache[0]
-                s_wa = "reserva" if int(p['quos']) == 1 else "reservas"
-                mensaje = f"{saludo}, reporto que en el corte reciente de las *{label_corte}* del programa *{p['prog']}* llevamos *0* ventas en Juniper; sin embargo, contamos con *{p['quos']}* {s_wa} en estado *QUO*.\n"
+                cant = int(p['quos'])
+                s_res = "reserva" if cant == 1 else "reservas"
+                s_evid = "evidencia" if cant == 1 else "evidencian"
+                mensaje = (
+                    f"{saludo}, reporto que en el corte correspondiente a las *{rango_txt}* del programa *{p['prog']}*, "
+                    f"en Juniper se reportan *0* reservas confirmadas; sin embargo, se {s_evid} *{cant}* {s_res} en estado *QUO*."
+                )
             else:
-                mensaje = f"{saludo}, reporto que en el corte reciente de las *{label_corte}*, en los siguientes programas llevamos *0* ventas en Juniper; sin embargo, sí cuentan con reservas en estado *QUO*:\n"
+                mensaje = (
+                    f"{saludo}, reporto que en el corte de las *{rango_txt}* se reporta que, para los siguientes programas "
+                    f"hay *0* reservas confirmadas; sin embargo, se evidencian {texto_quo_fluido}."
+                )
+
+        # --- CASO 2: SOLO ALERTAS DE ONED ---
+        elif cls._alertas_oned_cache and not cls._alertas_quo_cache:
+            if cantidad_oned == 1:
+                metrica = cls._alertas_oned_cache[0]['metrica']
+                mensaje = (
+                    f"{saludo}, reporto que en el corte reciente de las *{label_corte}* se identificó que el indicador "
+                    f"*{metrica}* de la plataforma {link_oned} se encuentra en *0*."
+                )
+            else:
+                mensaje = (
+                    f"{saludo}, reporto que en el corte reciente de las *{label_corte}* se identificó que los indicadores "
+                    f"*Tokenized Volume* y *Transaction Volume* de la plataforma {link_oned} se encuentran en *0*."
+                )
+
+        # --- CASO 3: CASO MIXTO (QUO + ONED) ---
         else:
             if cantidad_oned == 1:
-                metrica_unica = cls._alertas_oned_cache[0]['metrica']
-                mensaje = f"{saludo}, reporto que en el corte reciente de las *{label_corte}* se identificó que el indicador *{metrica_unica}* de la plataforma {link_oned} se encuentra en *0*.\n"
+                metrica = cls._alertas_oned_cache[0]['metrica']
+                texto_oned_mixto = f"el indicador *{metrica}* de la plataforma {link_oned} se encuentra en *0*."
             else:
-                mensaje = f"{saludo}, reporto que en el corte reciente de las *{label_corte}* se identificó que ambos indicadores principales de la plataforma {link_oned} se encuentran en *0*.\n"
+                texto_oned_mixto = f"los indicadores principales de la plataforma {link_oned} se encuentran en *0*."
 
-        # --- BLOQUE 2: DETALLE DE ALERTAS QUO ---
-        if cls._alertas_quo_cache:
-            if es_caso_mixto:
-                mensaje += "──────────────────────────\n"
-                mensaje += "RESERVAS EN ESTADO QUO\n"
-                mensaje += "En los siguientes programas llevamos *0* ventas en Juniper; sin embargo, sí cuentan con registros pendientes:\n"
-            
-            for p in cls._alertas_quo_cache:
-                mensaje += f"- *{p['prog']}*: {p['quos']}\n"
-            mensaje += "\n"
-
-        # --- BLOQUE 3: DETALLE DE ALERTAS ONED ---
-        if cls._alertas_oned_cache and es_caso_mixto:
-            mensaje += "──────────────────────────\n"
-            mensaje += "MÉTRICAS PLATAFORMA *ONED*\n"
-            
-            if cantidad_oned == 1:
-                metrica_unica = cls._alertas_oned_cache[0]['metrica']
-                mensaje += f"Se identificó que el indicador *{metrica_unica}* se encuentra en *0*.\n"
-            else:
-                mensaje += "Se identificó que ambos indicadores operacionales se encuentran en *0*.\n"
+            mensaje = (
+                f"{saludo}, reporto que en el corte de las *{rango_txt}* se identificaron novedades operacionales:\n\n"
+                f"📌 *RESERVAS EN ESTADO QUO*\n"
+                f"Para los programas indicados hay *0* reservas confirmadas; sin embargo, se evidencian {texto_quo_fluido}.\n\n"
+                f"🌐 *PLATAFORMA ONED*\n"
+                f"Asimismo, se identificó que {texto_oned_mixto}"
+            )
 
         # Limpieza absoluta de caché
         cls._alertas_quo_cache = []
