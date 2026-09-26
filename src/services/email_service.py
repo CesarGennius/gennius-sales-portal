@@ -16,7 +16,18 @@ class EmailService:
         self.cargo_firma = os.getenv("CARGO_FIRMA", "").strip()
 
     def enviar_reporte(self, label_corte, filas_html, t_tpv_list, t_q_list, col_idx, data_total, modo_final=False):
-        dest = self.finales if modo_final else [self.mi_correo]
+        # 🟢 Determinar destinatarios principales (To) y copias ocultas (Bcc)
+        if modo_final:
+            dest_to = self.finales if self.finales else ([self.mi_correo] if self.mi_correo else [])
+            dest_bcc = self.bcc
+        else:
+            dest_to = [self.mi_correo] if self.mi_correo else []
+            dest_bcc = []
+
+        if not dest_to and not dest_bcc:
+            print("⚠️ [EmailService] No hay destinatarios 'To' ni 'BCC' configurados.")
+            return False, []
+
         sujeto = f"Revisión monitoreo operacional de ventas_corte {label_corte}"
 
         # 1. Diccionario bilingüe para las abreviaturas de los meses
@@ -90,19 +101,19 @@ class EmailService:
 
                     texto_interno = f"""
                     <div style="{estilo_contenedor}">
-                        <span style="{estilo_texto_negro}"><b style="{estilo_titulo}">  Nota importante:</b> En el corte correspondiente a las {rango_txt} del programa <b>{p['prog']}</b>, en Juniper se reportan 0 reservas confirmadas; sin embargo, se {v_evid} <b>{p['quos']}</b> {s_res} en estado QUO.</span>
+                        <span style="{estilo_texto_negro}"><b style="{estilo_titulo}"> Nota importante:</b> En el corte correspondiente a las {rango_txt} del programa <b>{p['prog']}</b>, en Juniper se reportan 0 reservas confirmadas; sin embargo, se {v_evid} <b>{p['quos']}</b> {s_res} en estado QUO.</span>
                     </div>
                     """
                 else:
                     items_html = "".join([
-                        f"<li style='margin-bottom: 4px; list-style: none; {estilo_texto_negro}'>  Para el programa <b>{pa['prog']}</b> hay 0 reservas confirmadas; sin embargo, se { 'evidencia' if pa['quos'] == 1 else 'evidencian' } <b>{pa['quos']}</b> { 'reserva' if pa['quos'] == 1 else 'reservas' } en estado QUO.</li>"
+                        f"<li style='margin-bottom: 4px; list-style: none; {estilo_texto_negro}'> Para el programa <b>{pa['prog']}</b> hay 0 reservas confirmadas; sin embargo, se { 'evidencia' if pa['quos'] == 1 else 'evidencian' } <b>{pa['quos']}</b> { 'reserva' if pa['quos'] == 1 else 'reservas' } en estado QUO.</li>"
                         for pa in programas_alertas
                     ])
 
                     texto_interno = f"""
                     <div style="{estilo_contenedor}">
                         <div style="margin-bottom: 6px; {estilo_texto_negro}">
-                            <b style="{estilo_titulo}">  Nota importante:</b> En el corte de las {rango_txt} se reporta lo siguiente:
+                            <b style="{estilo_titulo}"> Nota importante:</b> En el corte de las {rango_txt} se reporta lo siguiente:
                         </div>
                         <ul style='margin: 0; padding: 0; list-style: none;'>
                             {items_html}
@@ -193,22 +204,13 @@ class EmailService:
         </html>
         """
 
-        msg = MIMEMultipart()
-        msg['From'] = self.remitente
-        msg['To'] = ", ".join(dest)
-        msg['Subject'] = sujeto
-        msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
-
         try:
-            # 🟢 Preparar lista completa de destinatarios (Incluye BCC si aplica)
-            destinatarios_finales = dest + (self.bcc if modo_final else [])
-            
-            # Importar la función que usa la API de Gmail por HTTPS (Puerto 443)
+            # 🟢 Unificar envio garantizando To y Bcc simultáneos
+            all_recipients = list(dict.fromkeys(dest_to + dest_bcc))
             from src.services.auth_service import enviar_correo_via_gmail_api
             
-            # 🟢 Enviar a cada destinatario usando la API REST de Gmail (Evita el bloqueo de puertos de Render)
             exito_envio = True
-            for destinatario in destinatarios_finales:
+            for destinatario in all_recipients:
                 res = enviar_correo_via_gmail_api(
                     remitente=self.remitente,
                     destino=destinatario,
@@ -219,7 +221,7 @@ class EmailService:
                     exito_envio = False
 
             if exito_envio:
-                print("✅ Correo enviado exitosamente vía Gmail REST API (HTTPS 443)")
+                print(f"✅ Correo enviado exitosamente vía Gmail REST API a TO: {dest_to} y BCC: {dest_bcc}")
                 return True, notas_lista
             else:
                 print("❌ Falló el envío de correo a uno o más destinatarios vía Gmail API")
