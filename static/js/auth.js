@@ -838,7 +838,7 @@ async function abrirMiPerfilModal() {
       document.getElementById('edit-sheet-id').value = u.sheet_id || '';
       document.getElementById('edit-gid-hoja').value = u.gid_hoja || '0';
 
-      // 🟢 Carga dinámica limpia de los chips de perfil
+      // En static/js/auth.js dentro de abrirMiPerfilModal:
       editFinalesChips = Array.isArray(u.destinatarios_finales) 
         ? [...u.destinatarios_finales] 
         : (u.destinatarios_finales || '').split(',').map(s => s.trim()).filter(Boolean);

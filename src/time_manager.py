@@ -1,10 +1,17 @@
 from datetime import datetime, timedelta
+import zoneinfo
 
 class TimeManager:
     @staticmethod
     def get_current_cutoff_range():
-        now = datetime.now()
-        
+        # 🟢 Forzar Zona Horaria Local (Bogotá / UTC-5) para ignorar el reloj UTC de Render
+        try:
+            tz = zoneinfo.ZoneInfo("America/Bogota")
+            now = datetime.now(tz).replace(tzinfo=None)
+        except Exception:
+            # Fallback en caso de que zoneinfo falle en sistemas antiguos
+            now = datetime.now() - timedelta(hours=5)
+
         # Si estamos entre las 00:00 y las 06:30, operamos como el cierre de ayer
         if now.hour < 6 or (now.hour == 6 and now.minute <= 30):
             referencia = now - timedelta(days=1)
