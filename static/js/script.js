@@ -255,16 +255,16 @@ function renderTabla(dataTotal, labelCorte, errorGemini = false) {
   const programas = ["VLS", "CIBC", "NCB", "FC", "Cuscatlan", "Scotia", "MilesCare LifeMiles"];
   const cortes = ["630am", "1230pm", "630pm"];
   
-  // 🟢 Detección estricta de corte activa limpia
+  // 🟢 Detección estricta y quirúrgica del corte activo
   const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
-  let idxCorteActual = 0; // 6:30am por defecto
+  let idxCorteActual = 0; // 0 = 6:30am, 1 = 12:30pm, 2 = 6:30pm
 
-  if (cleanLabel.includes("1230")) {
-    idxCorteActual = 1; // 12:30pm
-  } else if (cleanLabel.includes("630pm")) {
-    idxCorteActual = 2; // 6:30pm
-  } else if (cleanLabel.includes("630am") || cleanLabel.includes("630")) {
-    idxCorteActual = 0; // 6:30am
+  if (/1230/i.test(cleanLabel)) {
+    idxCorteActual = 1; // 12:30pm (SEGUNDO CORTE)
+  } else if (/630pm/i.test(cleanLabel) || (cleanLabel.includes("630") && cleanLabel.includes("pm"))) {
+    idxCorteActual = 2; // 6:30pm (TERCER CORTE)
+  } else {
+    idxCorteActual = 0; // 6:30am (PRIMER CORTE)
   }
 
   let totalTPV = { "630am": 0, "1230pm": 0, "630pm": 0 };
@@ -341,15 +341,15 @@ function renderTabla(dataTotal, labelCorte, errorGemini = false) {
 function renderTablaONED(dataOned, onedHistorico = {}, labelCorte = "") {
   const cortes = ["630am", "1230pm", "630pm"];
   
-  // 🟢 Detección estricta de corte activa limpia
+  // 🟢 Detección estricta y quirúrgica del corte activo para ONED
   const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
-  let idxCorteActual = 0; // 6:30am por defecto
+  let idxCorteActual = 0;
 
-  if (cleanLabel.includes("1230")) {
+  if (/1230/i.test(cleanLabel)) {
     idxCorteActual = 1; // 12:30pm
-  } else if (cleanLabel.includes("630pm")) {
+  } else if (/630pm/i.test(cleanLabel) || (cleanLabel.includes("630") && cleanLabel.includes("pm"))) {
     idxCorteActual = 2; // 6:30pm
-  } else if (cleanLabel.includes("630am") || cleanLabel.includes("630")) {
+  } else {
     idxCorteActual = 0; // 6:30am
   }
 
