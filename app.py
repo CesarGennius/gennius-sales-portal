@@ -1,5 +1,5 @@
 import os
-import json
+import re
 import tempfile
 import traceback
 import pandas as pd
@@ -484,7 +484,7 @@ def actualizar_cache_tpv_endpoint(payload: dict):
         label_corte = payload.get("label_corte", "6:30am")
         cambios_tpv = payload.get("cambios_tpv", {})
         
-        clean_label = label_corte.replace(":", "").lower().replace(" ", "")
+        clean_label = re.sub(r'\s+', '', label_corte.lower().replace(':', ''))
         data_total = CACHE_PROCESAMIENTO.get("data_total")
         
         if data_total and clean_label in data_total and data_total[clean_label] is not None:

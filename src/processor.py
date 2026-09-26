@@ -36,8 +36,9 @@ class ReservationProcessor:
                 print("❌ ERROR CRÍTICO: No se encontró columna de fecha o agencia en el archivo.")
                 return {}, {}
 
-            # 🎯 1. Conversión limpia y automática de fechas
-            df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce').dt.tz_localize(None)
+            df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
+            if hasattr(df[col_fecha].dt, 'tz_localize') and df[col_fecha].dt.tz is not None:
+                df[col_fecha] = df[col_fecha].dt.tz_localize(None)
             
             start_dt = pd.to_datetime(start_dt).tz_localize(None)
             end_dt = pd.to_datetime(end_dt).tz_localize(None)
