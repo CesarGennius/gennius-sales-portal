@@ -1,4 +1,6 @@
 import os
+import base64
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
@@ -105,7 +107,6 @@ class EmailService:
                     </div>
                     """
                 else:
-                    # 🟢 REDACCIÓN UNIFICADA PROFESIONAL EN EL HTML
                     listado_partes = []
                     for pa in programas_alertas:
                         s_cant = f"{pa['quos']} {'reserva' if pa['quos'] == 1 else 'reservas'}"
@@ -206,26 +207,47 @@ class EmailService:
         """
 
         try:
-            # 🟢 Unificar envio garantizando To y Bcc simultáneos
-            all_recipients = list(dict.fromkeys(dest_to + dest_bcc))
-            from src.services.auth_service import enviar_correo_via_gmail_api
-            
-            exito_envio = True
-            for destinatario in all_recipients:
-                res = enviar_correo_via_gmail_api(
-                    remitente=self.remitente,
-                    destino=destinatario,
-                    asunto=sujeto,
-                    html_body=cuerpo_html
-                )
-                if not res:
-                    exito_envio = False
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            from src.services.google_sheets_service import obtener_ruta_secret_file
 
-            if exito_envio:
-                print(f"✅ Correo enviado exitosamente vía Gmail REST API a TO: {dest_to} y BCC: {dest_bcc}")
+            ruta_token = obtener_ruta_secret_file("token.json")
+            if not os.path.exists(ruta_token):
+                print("❌ [EmailService] No se encontró token.json para la API de Gmail")
+                return False, []
+
+            creds = Credentials.from_authorized_user_file(ruta_token)
+            if creds and creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                except Exception as e_ref:
+                    print(f"⚠️ Error al refrescar token de Google: {e_ref}")
+
+            # 🟢 CONSTRUCCIÓN DEL MENSAJE UNIFICADO (UN SOLO CORREO GRUPAL)
+            msg = MIMEMultipart()
+            msg['From'] = self.remitente
+            if dest_to:
+                msg['To'] = ", ".join(dest_to)
+            if dest_bcc:
+                msg['Bcc'] = ", ".join(dest_bcc)
+            msg['Subject'] = sujeto
+            msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
+
+            raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+
+            url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+            headers = {
+                "Authorization": f"Bearer {creds.token}",
+                "Content-Type": "application/json"
+            }
+
+            response = requests.post(url, json={"raw": raw_message}, headers=headers, timeout=15)
+
+            if response.status_code in (200, 201):
+                print(f"✅ Correo GRUPAL enviado exitosamente a TO: {dest_to} | BCC: {dest_bcc}")
                 return True, notas_lista
             else:
-                print("❌ Falló el envío de correo a uno o más destinatarios vía Gmail API")
+                print(f"❌ Error HTTP Gmail API ({response.status_code}): {response.text}")
                 return False, []
 
         except Exception as e:
