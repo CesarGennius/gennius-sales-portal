@@ -811,7 +811,6 @@ function resetSubmoduloPass() {
 async function abrirMiPerfilModal() {
   const dropdown = document.getElementById('user-dropdown-menu');
   if (dropdown) dropdown.style.display = 'none';
-
   resetSubmoduloEmail();
   resetSubmoduloPass();
 
@@ -839,8 +838,15 @@ async function abrirMiPerfilModal() {
       document.getElementById('edit-sheet-id').value = u.sheet_id || '';
       document.getElementById('edit-gid-hoja').value = u.gid_hoja || '0';
 
-      editFinalesChips = Array.isArray(u.destinatarios_finales) ? u.destinatarios_finales : [];
-      editBccChips = Array.isArray(u.destinatarios_bcc) ? u.destinatarios_bcc : [];
+      // 🟢 Carga dinámica limpia de los chips de perfil
+      editFinalesChips = Array.isArray(u.destinatarios_finales) 
+        ? [...u.destinatarios_finales] 
+        : (u.destinatarios_finales || '').split(',').map(s => s.trim()).filter(Boolean);
+
+      editBccChips = Array.isArray(u.destinatarios_bcc) 
+        ? [...u.destinatarios_bcc] 
+        : (u.destinatarios_bcc || '').split(',').map(s => s.trim()).filter(Boolean);
+
       renderChips('edit-chips-finales-box', 'edit-input-finales', editFinalesChips);
       renderChips('edit-chips-bcc-box', 'edit-input-bcc', editBccChips);
       renderAvatarPicker(u.avatar || session.avatar);
@@ -940,17 +946,18 @@ async function confirmarSeleccionAvatar() {
 
 async function guardarCambiosPerfil() {
   const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
+  const userEmail = session.email || localStorage.getItem('user_email');
 
   const payload = {
-    email: session.email,
+    email: userEmail,
     nombre: document.getElementById('edit-nombre').value,
     apellido: document.getElementById('edit-apellido').value,
     gemini_api_key: document.getElementById('edit-gemini-key').value,
     remitente: document.getElementById('edit-remitente').value,
     google_app_password: document.getElementById('edit-google-password').value,
     mi_correo: document.getElementById('edit-mi-correo').value,
-    destinatarios_finales: editFinalesChips,
-    destinatarios_bcc: editBccChips,
+    destinatarios_finales: editFinalesChips, // 🟢 Envía la lista actualizada de los chips de Perfil
+    destinatarios_bcc: editBccChips,           // 🟢 Envía la lista actualizada de los chips de Perfil
     nombre_firma: document.getElementById('edit-firma-nombre').value,
     cargo_firma: document.getElementById('edit-firma-cargo').value,
     sheet_id: document.getElementById('edit-sheet-id').value,
@@ -969,7 +976,6 @@ async function guardarCambiosPerfil() {
       localStorage.setItem('gennius_session', JSON.stringify(session));
       inyectarBotonAdminNav(session);
       cerrarModal('modal-mi-perfil');
-
       if (typeof showErrorToast === 'function') {
         showErrorToast("Perfil actualizado con éxito.", "success");
       }
@@ -1486,12 +1492,13 @@ async function ejecutarEliminacionUsuario(email, btnConfirm) {
 }
 
 /* ==========================================================================
-   7. MANEJO DE CHIPS E INPUTS DINÁMICOS
+   7. MANEJO DE CHIPS E INPUTS DINÁMICOS (UNIFICADO PERFIL + REGISTRO)
    ========================================================================== */
-
 function inicializarChips() {
   setupChipInput('input-finales', 'chips-finales-box', destinatariosFinalesChips);
   setupChipInput('input-bcc', 'chips-bcc-box', destinatariosBccChips);
+  setupChipInput('edit-input-finales', 'edit-chips-finales-box', editFinalesChips);
+  setupChipInput('edit-input-bcc', 'edit-chips-bcc-box', editBccChips);
 }
 
 function setupChipInput(inputId, containerId, targetArray) {
@@ -1499,15 +1506,22 @@ function setupChipInput(inputId, containerId, targetArray) {
   if (!input) return;
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
       e.preventDefault();
-      const val = input.value.replace(',', '').trim();
-      if (val && !targetArray.includes(val)) {
-        targetArray.push(val);
-        renderChips(containerId, inputId, targetArray);
-      }
-      input.value = '';
+      procesarEntradaChips(input.value, targetArray, containerId, inputId);
     }
+  });
+
+  input.addEventListener('blur', () => {
+    if (input.value.trim()) {
+      procesarEntradaChips(input.value, targetArray, containerId, inputId);
+    }
+  });
+
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+    procesarEntradaChips(pastedData, targetArray, containerId, inputId);
   });
 }
 
@@ -1522,6 +1536,7 @@ function renderChips(boxId, inputId, targetArray) {
   targetArray.forEach((email, index) => {
     const chipNode = document.createElement('div');
     chipNode.className = 'chip-item';
+    
     const labelSpan = document.createElement('span');
     labelSpan.textContent = email;
 
@@ -1549,6 +1564,30 @@ function removerChip(boxId, inputId, index) {
   } else if (boxId === 'chips-bcc-box') {
     destinatariosBccChips.splice(index, 1);
     renderChips(boxId, inputId, destinatariosBccChips);
+  } else if (boxId === 'edit-chips-finales-box') {
+    editFinalesChips.splice(index, 1);
+    renderChips(boxId, inputId, editFinalesChips);
+  } else if (boxId === 'edit-chips-bcc-box') {
+    editBccChips.splice(index, 1);
+    renderChips(boxId, inputId, editBccChips);
+  }
+}
+
+function procesarEntradaChips(inputText, targetArray, boxId, inputId) {
+  const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const candidatos = inputText.split(/[\s,\n\r]+/);
+  let seAgregoNuevo = false;
+
+  candidatos.forEach(item => {
+    const emailLimpio = item.trim().toLowerCase();
+    if (emailLimpio && regexEmail.test(emailLimpio) && !targetArray.includes(emailLimpio)) {
+      targetArray.push(emailLimpio);
+      seAgregoNuevo = true;
+    }
+  });
+
+  if (seAgregoNuevo) {
+    renderChips(boxId, inputId, targetArray);
   }
 }
 
@@ -1581,24 +1620,6 @@ function setupChipsListeners() {
       }
     });
   });
-}
-
-function procesarEntradaChips(inputText, targetArray, boxId, inputId) {
-  const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  const candidatos = inputText.split(/[\s,\n\r]+/);
-  let seAgregoNuevo = false;
-
-  candidatos.forEach(item => {
-    const emailLimpio = item.trim().toLowerCase();
-    if (emailLimpio && regexEmail.test(emailLimpio) && !targetArray.includes(emailLimpio)) {
-      targetArray.push(emailLimpio);
-      seAgregoNuevo = true;
-    }
-  });
-
-  if (seAgregoNuevo) {
-    renderChips(boxId, inputId, targetArray);
-  }
 }
 
 function mostrarToastBienvenida(session) {

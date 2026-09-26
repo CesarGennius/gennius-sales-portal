@@ -464,8 +464,16 @@ class AuthService:
             cfg["PASSWORD"] = cls._encrypt_text(val) if val and not val.startswith("gAAAAA") else val
         if "remitente" in profile_data: cfg["REMITENTE"] = profile_data["remitente"]
         if "mi_correo" in profile_data: cfg["MI_CORREO"] = profile_data["mi_correo"]
-        if "destinatarios_finales" in profile_data: cfg["DESTINATARIOS_FINALES"] = profile_data["destinatarios_finales"]
-        if "destinatarios_bcc" in profile_data: cfg["DESTINATARIOS_BCC"] = profile_data["destinatarios_bcc"]
+        
+        # 🟢 Normalizar destinatarios a lista de strings
+        if "destinatarios_finales" in profile_data:
+            val_fin = profile_data["destinatarios_finales"]
+            cfg["DESTINATARIOS_FINALES"] = val_fin if isinstance(val_fin, list) else [s.strip() for s in str(val_fin).split(",") if s.strip()]
+            
+        if "destinatarios_bcc" in profile_data:
+            val_bcc = profile_data["destinatarios_bcc"]
+            cfg["DESTINATARIOS_BCC"] = val_bcc if isinstance(val_bcc, list) else [s.strip() for s in str(val_bcc).split(",") if s.strip()]
+            
         if "nombre_firma" in profile_data: cfg["NOMBRE_FIRMA"] = profile_data["nombre_firma"]
         if "cargo_firma" in profile_data: cfg["CARGO_FIRMA"] = profile_data["cargo_firma"]
         if "sheet_id" in profile_data: cfg["SHEET_ID"] = profile_data["sheet_id"]
