@@ -1,93 +1,93 @@
 import time
-import re
-import requests
+from playwright.sync_api import sync_playwright
 
 def obtener_metricas_oned_1d():
     """
-    Extrae Tokenized Volume (1d) y Transaction Volume (1d) directamente
-    mediante HTTP Request ligero, sin consumir la RAM del servidor con Chromium.
+    Extrae las métricas Tokenized Volume y Transaction Volume de ONED
+    leyendo el atributo aria-label de la tarjeta Angular correspondiente.
     """
     url = "https://oned.global/#/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-
     max_intentos = 3
+    user_agent_real = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
     for intento in range(1, max_intentos + 1):
-        print(f"🕵️‍♂️ [ONED - HTTP] Intento {intento} de {max_intentos}...")
+        print(f"🕵️‍♂️ [ONED] Intento {intento} de {max_intentos}...")
+
         try:
-            resp = requests.get(url, headers=headers, timeout=12)
-            if resp.status_code == 200:
-                html = resp.text
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--single-process",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--no-first-run",
+                        "--no-zygote"
+                    ]
+                )
                 
-                # Búsqueda de valores numéricos en las tarjetas de Tokenized Volume y Transaction Volume
-                # Buscar números formateados cerca de las palabras clave
-                tok_match = re.search(r'Tokenized\s+Volume.*?class="[^"]*bs-card__value[^"]*"[^>]*>([\d,.]+)', html, re.DOTALL | re.IGNORECASE)
-                tx_match = re.search(r'Transaction\s+Volume.*?class="[^"]*bs-card__value[^"]*"[^>]*>([\d,.]+)', html, re.DOTALL | re.IGNORECASE)
+                context = browser.new_context(
+                    user_agent=user_agent_real,
+                    viewport={"width": 1280, "height": 720},
+                    locale="en-US"
+                )
                 
-                tok_val = 0
-                tx_val = 0
+                page = context.new_page()
 
-                if tok_match:
-                    raw_str = tok_match.group(1)
-                    tok_val = int(re.sub(r'[^\d]', '', raw_str)) if re.sub(r'[^\d]', '', raw_str) else 0
+                # Navegar y esperar a que Angular renderice los componentes bs-card
+                page.goto(url, wait_until="domcontentloaded", timeout=25000)
+                page.wait_for_selector("app-bs-card", timeout=15000)
+                page.wait_for_timeout(2000)
 
-                if tx_match:
-                    raw_str = tx_match.group(1)
-                    tx_val = int(re.sub(r'[^\d]', '', raw_str)) if re.sub(r'[^\d]', '', raw_str) else 0
+                # 🟢 JavaScript ultra-específico basado en la estructura DOM real de Angular
+                script_JS = """
+                () => {
+                  let tokenized = 0;
+                  let transaction = 0;
+                  
+                  const cards = Array.from(document.querySelectorAll('app-bs-card'));
+                  
+                  cards.forEach(card => {
+                    const h3 = card.querySelector('h3.bs-card__label');
+                    const strong = card.querySelector('strong.bs-card__value');
+                    
+                    if (h3 && strong) {
+                      const titulo = h3.innerText.trim();
+                      const valAria = strong.getAttribute('aria-label') || strong.innerText;
+                      const num = parseInt(valAria.replace(/[^0-9]/g, ''), 10);
+                      
+                      if (titulo === 'Tokenized Volume' && !isNaN(num)) {
+                        tokenized = num;
+                      }
+                      if (titulo === 'Transaction Volume' && !isNaN(num)) {
+                        transaction = num;
+                      }
+                    }
+                  });
+                  
+                  return { tokenized, transaction };
+                }
+                """
 
-                # Fallback por regex si la clase cambia
-                if tok_val == 0:
-                    tok_m2 = re.search(r'Tokenized\s+Volume[^\d]+([\d,]{4,15})', html, re.IGNORECASE)
-                    if tok_m2:
-                        tok_val = int(re.sub(r'[^\d]', '', tok_m2.group(1)))
+                datos = page.evaluate(script_JS)
+                tokenized_val = datos.get("tokenized", 0)
+                transaction_val = datos.get("transaction", 0)
 
-                if tx_val == 0:
-                    tx_m2 = re.search(r'Transaction\s+Volume[^\d]+([\d,]{4,15})', html, re.IGNORECASE)
-                    if tx_m2:
-                        tx_val = int(re.sub(r'[^\d]', '', tx_m2.group(1)))
+                browser.close()
 
-                if tok_val > 0 or tx_val > 0:
-                    print(f"✅ [ONED - HTTP] Éxito: Tokenized={tok_val}, Transaction={tx_val}")
-                    return {"tokenized": tok_val, "transaction": tx_val}
+                if tokenized_val > 0 or transaction_val > 0:
+                    print(f"✅ [ONED] Éxito en intento {intento}: Tokenized={tokenized_val}, Transaction={transaction_val}")
+                    return {"tokenized": tokenized_val, "transaction": transaction_val}
+                else:
+                    print(f"  ⚠️ Intento {intento}: La SPA de Angular no había completado el renderizado.")
 
         except Exception as e:
-            print(f"⚠️ [ONED - HTTP] Intento {intento} fallido: {e}")
-            time.sleep(1)
+            print(f"⚠️ Intento {intento} fallido: {e}")
 
-    # Si la SPA requiere renderizado obligatoriamente, intentamos un Playwright ultraliviano con descarte rápido
-    print("⚠️ Reintentando con motor secundario ultraliviano...")
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--single-process", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
-            )
-            page = browser.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=20000)
-            page.wait_for_timeout(3000)
+        if intento < max_intentos:
+            time.sleep(2)
 
-            val_tok = page.evaluate("""() => {
-                const el = Array.from(document.querySelectorAll('div, article')).find(e => e.innerText.includes('Tokenized Volume'));
-                if (!el) return 0;
-                const strong = el.querySelector('strong, .bs-card__value');
-                return strong ? parseInt((strong.getAttribute('aria-label') || strong.innerText).replace(/[^0-9]/g, ''), 10) : 0;
-            }""")
-
-            val_tx = page.evaluate("""() => {
-                const el = Array.from(document.querySelectorAll('div, article')).find(e => e.innerText.includes('Transaction Volume'));
-                if (!el) return 0;
-                const strong = el.querySelector('strong, .bs-card__value');
-                return strong ? parseInt((strong.getAttribute('aria-label') || strong.innerText).replace(/[^0-9]/g, ''), 10) : 0;
-            }""")
-
-            browser.close()
-            return {"tokenized": val_tok or 0, "transaction": val_tx or 0}
-    except Exception as e_pw:
-        print(f"❌ [ONED] Falló fallback secundario: {e_pw}")
-
+    print("❌ [ONED] Se agotaron los intentos. Retornando ceros de contingencia.")
     return {"tokenized": 0, "transaction": 0}
