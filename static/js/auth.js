@@ -448,6 +448,10 @@ async function guardarNuevaPasswordObligatoria() {
       mostrarMensajeUI("¡Contraseña actualizada! Ya puedes ingresar.", "success");
 
       if (newPasswordInput) newPasswordInput.value = '';
+
+      const loginPwdInput = document.getElementById('login-password');
+      if (loginPwdInput) loginPwdInput.value = '';
+
       limpiarCasillasOTP('#card-2fa');
 
       const cardForced = document.getElementById('card-forced-pwd');
