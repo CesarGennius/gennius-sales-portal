@@ -102,8 +102,9 @@ async function ingresarRapidoPrelogueado() {
         const authOverlay = document.getElementById('auth-overlay');
         if (authOverlay) authOverlay.style.display = 'none';
 
+        // 🟢 PRECARGA SÍNCRONA DE HISTORIAL DE SHEETS
         if (typeof window.iniciarPrecargaBackground === 'function') {
-          window.iniciarPrecargaBackground();
+          await window.iniciarPrecargaBackground();
         }
       } else {
         mostrarMensajeUI("Sesión expirada. Por favor ingresa tus datos.");
@@ -328,8 +329,9 @@ async function autoVerificarOTP() {
       const authOverlay = document.getElementById('auth-overlay');
       if (authOverlay) authOverlay.style.display = 'none';
 
+      // 🟢 PRECARGA SÍNCRONA DE HISTORIAL DE SHEETS
       if (typeof window.iniciarPrecargaBackground === 'function') {
-        window.iniciarPrecargaBackground();
+        await window.iniciarPrecargaBackground();
       }
     } else {
       mostrarMensajeUI(res.message || "Código de verificación incorrecto.");
