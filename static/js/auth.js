@@ -18,10 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupOTPInputs();
   comprobarSesionGuardada();
   setupLiveValidation();
-  setupChipsListeners();
 
   document.querySelectorAll('input, form').forEach(el => {
-    el.setAttribute('autocomplete', 'one-time-code'); // Engaña al autocompletado del navegador
+    el.setAttribute('autocomplete', 'one-time-code');
     el.setAttribute('autocorrect', 'off');
     el.setAttribute('spellcheck', 'false');
   });
@@ -30,11 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ==========================================================================
    1. GESTIÓN DE SESIÓN Y ACCESO RÁPIDO (7 DÍAS)
    ========================================================================== */
-
-/**
- * Comprueba si existe una sesión válida iniciada en los últimos 7 días.
- * Muestra la tarjeta estilo Facebook/Instagram (#card-prelogged) o el Login tradicional.
- */
 function comprobarSesionGuardada() {
   const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
   const userEmail = session.email || localStorage.getItem('user_email');
@@ -77,9 +71,6 @@ function comprobarSesionGuardada() {
   mostrarLoginForm();
 }
 
-/**
- * Ingreso directo un solo clic usando las credenciales en caché.
- */
 async function ingresarRapidoPrelogueado() {
   const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
   const email = session.email || localStorage.getItem('user_email');
@@ -106,7 +97,6 @@ async function ingresarRapidoPrelogueado() {
         localStorage.setItem('user_email', email);
 
         inyectarBotonAdminNav(session);
-
         mostrarToastBienvenida(session);
 
         const authOverlay = document.getElementById('auth-overlay');
@@ -127,10 +117,6 @@ async function ingresarRapidoPrelogueado() {
   }
 }
 
-/**
- * Cierra la sesión activa en pantalla, pero PRESERVA la tarjeta pre-logueada
- * para acceso rápido posterior.
- */
 function cerrarSesion() {
   const dropdown = document.getElementById('user-dropdown-menu');
   if (dropdown) dropdown.style.display = 'none';
@@ -151,9 +137,6 @@ function cerrarSesion() {
   comprobarSesionGuardada();
 }
 
-/**
- * Conmuta la interfaz hacia el formulario de login tradicional.
- */
 function mostrarLoginForm() {
   const alertBox = document.getElementById('auth-ui-alert');
   if (alertBox) alertBox.style.display = 'none';
@@ -172,7 +155,6 @@ function mostrarLoginForm() {
 /* ==========================================================================
    2. FLUJO DE AUTENTICACIÓN, 2FA Y RESETEO DE PASSWORD
    ========================================================================== */
-
 function iniciarSesion() {
   const email = document.getElementById('login-email')?.value || '';
   const password = document.getElementById('login-password')?.value || '';
@@ -238,9 +220,6 @@ function iniciarSesion() {
   });
 }
 
-/**
- * Configura el comportamiento de salto, pegado y borrado para cualquier contenedor OTP.
- */
 function setupOTPInputs() {
   const containers = document.querySelectorAll('.otp-container');
   containers.forEach(container => {
@@ -254,7 +233,6 @@ function setupOTPInputs() {
             inputs[index + 1].focus();
           } else {
             input.blur();
-            // 🟢 Detección inteligente del módulo activo para auto-confirmar
             if (container.closest('#card-2fa')) {
               autoVerificarOTP();
             } else if (container.closest('#wrap-step-email-2fa')) {
@@ -295,9 +273,6 @@ function setupOTPInputs() {
   });
 }
 
-/**
- * Obtiene el valor unido de 6 dígitos para un contenedor especificado o por defecto #card-2fa.
- */
 function obtenerCodigoOTP(containerSelector = '#card-2fa') {
   const inputs = document.querySelectorAll(`${containerSelector} .otp-field`);
   let code = '';
@@ -305,9 +280,6 @@ function obtenerCodigoOTP(containerSelector = '#card-2fa') {
   return code;
 }
 
-/**
- * Blanquea las 6 casillas OTP de un contenedor específico.
- */
 function limpiarCasillasOTP(containerSelector = '#card-2fa') {
   const inputs = document.querySelectorAll(`${containerSelector} .otp-field`);
   inputs.forEach(input => {
@@ -351,7 +323,6 @@ async function autoVerificarOTP() {
       localStorage.setItem('user_email', email);
 
       inyectarBotonAdminNav(session);
-
       mostrarToastBienvenida(session);
 
       const authOverlay = document.getElementById('auth-overlay');
@@ -414,7 +385,6 @@ async function ejecutarResetPassword() {
     const res = await resp.json();
 
     if (resp.ok && (res.status === 'success' || res.message)) {
-      // 🟢 Inyección de notificación de éxito dentro de la misma tarjeta antes de salir
       const cardReset = document.getElementById('card-reset-pwd');
       let msgBox = document.getElementById('reset-success-msg');
       if (!msgBox) {
@@ -498,7 +468,6 @@ async function guardarNuevaPasswordObligatoria() {
 /* ==========================================================================
    3. REGISTRO DE NUEVOS USUARIOS Y VALIDACIONES
    ========================================================================== */
-
 function limpiarFormularioRegistro() {
   const form = document.getElementById('form-registro-usuario');
   if (form) form.reset();
@@ -577,7 +546,6 @@ function mostrarMensajeRegUI(mensaje, tipo = 'error') {
 }
 
 async function completarRegistro() {
-  // 🟢 Desactivar autocompletado de navegador de forma forzada
   const inputsRegistro = document.querySelectorAll('#form-registro-usuario input');
   inputsRegistro.forEach(input => {
     input.setAttribute('autocomplete', 'one-time-code');
@@ -625,7 +593,6 @@ async function completarRegistro() {
   const btnText = btn ? btn.querySelector('.btn-text') : null;
   const btnSpinner = btn ? btn.querySelector('.btn-spinner') : null;
 
-  // 🟢 Activar spinner y ocultar texto del botón durante todo el proceso
   if (btn) btn.disabled = true;
   if (btnText) btnText.style.display = 'none';
   if (btnSpinner) btnSpinner.style.display = 'inline-block';
@@ -641,17 +608,15 @@ async function completarRegistro() {
     const res = await resp.json();
 
     if (resp.ok && (res.status === 'success' || res.message)) {
-      esExitoso = true; // Marcar como exitoso para mantener el spinner durante el setTimeout
+      esExitoso = true;
       const msgExito = res.message || "La cuenta fue registrada correctamente. Aprobación pendiente.";
       mostrarMensajeRegUI(msgExito, "success");
 
-      // 🟢 Mantiene el spinner activo durante los 2.5s antes de la redirección
       setTimeout(() => {
         limpiarFormularioRegistro();
         mostrarVistaLogin();
         mostrarMensajeUI(msgExito, "success");
 
-        // Restablecer botón solo al finalizar la redirección
         if (btn) btn.disabled = false;
         if (btnText) btnText.style.display = 'inline';
         if (btnSpinner) btnSpinner.style.display = 'none';
@@ -662,7 +627,6 @@ async function completarRegistro() {
   } catch (e) {
     mostrarMensajeRegUI("Error de red al registrar la cuenta.");
   } finally {
-    // 🔄 Si ocurrió un error, restaurar el botón de inmediato
     if (!esExitoso) {
       if (btn) btn.disabled = false;
       if (btnText) btnText.style.display = 'inline';
@@ -674,7 +638,6 @@ async function completarRegistro() {
 /* ==========================================================================
    4. COMPONENTES UI Y UTILIDADES (NAVBAR, CHIPS, AVATARES)
    ========================================================================== */
-
 function togglePasswordVisibility(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -771,7 +734,6 @@ function cerrarModal(modalId) {
 /* ==========================================================================
    5. MODAL MI PERFIL, SUBMÓDULOS DE EDICIÓN Y AVATAR
    ========================================================================== */
-
 function resetSubmoduloEmail() {
   pasoActualEmail = 1;
   const nuevoEmail = document.getElementById('edit-nuevo-email');
@@ -804,7 +766,7 @@ function resetSubmoduloPass() {
   if (btn) {
     btn.innerText = "Actualizar Contraseña";
     btn.disabled = false;
-    btn.style.display = 'block'; // 🟢 Restaurar visibilidad
+    btn.style.display = 'block';
   }
 }
 
@@ -838,30 +800,14 @@ async function abrirMiPerfilModal() {
       document.getElementById('edit-sheet-id').value = u.sheet_id || '';
       document.getElementById('edit-gid-hoja').value = u.gid_hoja || '0';
 
-      // 🟢 CARGA GARANTIZADA DE ARREGLOS DE CHIPS DE PERFIL
-      const rawFinales = u.destinatarios_finales;
-      if (Array.isArray(rawFinales)) {
-        editFinalesChips = [...rawFinales];
-      } else if (typeof rawFinales === 'string' && rawFinales.trim()) {
-        editFinalesChips = rawFinales.split(',').map(s => s.trim()).filter(Boolean);
-      } else {
-        editFinalesChips = [];
-      }
+      const fin = u.destinatarios_finales;
+      editFinalesChips = Array.isArray(fin) ? [...fin] : (typeof fin === 'string' && fin.trim() ? fin.split(',').map(s=>s.trim()).filter(Boolean) : []);
 
-      const rawBcc = u.destinatarios_bcc;
-      if (Array.isArray(rawBcc)) {
-        editBccChips = [...rawBcc];
-      } else if (typeof rawBcc === 'string' && rawBcc.trim()) {
-        editBccChips = rawBcc.split(',').map(s => s.trim()).filter(Boolean);
-      } else {
-        editBccChips = [];
-      }
+      const bcc = u.destinatarios_bcc;
+      editBccChips = Array.isArray(bcc) ? [...bcc] : (typeof bcc === 'string' && bcc.trim() ? bcc.split(',').map(s=>s.trim()).filter(Boolean) : []);
 
-      // 🟢 Vincular eventos keydown, paste y blur sobre los inputs del modal de perfil
-      setupChipInput('edit-input-finales', 'edit-chips-finales-box', editFinalesChips);
-      setupChipInput('edit-input-bcc', 'edit-chips-bcc-box', editBccChips);
+      setupChipsListeners();
 
-      // 🟢 Renderizar los chips visualmente en los dos contenedores
       renderChips('edit-chips-finales-box', 'edit-input-finales', editFinalesChips);
       renderChips('edit-chips-bcc-box', 'edit-input-bcc', editBccChips);
 
@@ -873,6 +819,58 @@ async function abrirMiPerfilModal() {
 
   const modal = document.getElementById('modal-mi-perfil');
   if (modal) modal.style.display = 'flex';
+}
+
+async function guardarCambiosPerfil() {
+  const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
+  const userEmail = session.email || localStorage.getItem('user_email');
+
+  const inputFin = document.getElementById('edit-input-finales');
+  if (inputFin && inputFin.value.trim()) {
+    procesarEntradaChips(inputFin.value, editFinalesChips, 'edit-chips-finales-box', 'edit-input-finales');
+  }
+  const inputBcc = document.getElementById('edit-input-bcc');
+  if (inputBcc && inputBcc.value.trim()) {
+    procesarEntradaChips(inputBcc.value, editBccChips, 'edit-chips-bcc-box', 'edit-input-bcc');
+  }
+
+  const payload = {
+    email: userEmail,
+    nombre: document.getElementById('edit-nombre').value,
+    apellido: document.getElementById('edit-apellido').value,
+    gemini_api_key: document.getElementById('edit-gemini-key').value,
+    remitente: document.getElementById('edit-remitente').value,
+    google_app_password: document.getElementById('edit-google-password').value,
+    mi_correo: document.getElementById('edit-mi-correo').value,
+    destinatarios_finales: editFinalesChips,
+    destinatarios_bcc: editBccChips,
+    nombre_firma: document.getElementById('edit-firma-nombre').value,
+    cargo_firma: document.getElementById('edit-firma-cargo').value,
+    sheet_id: document.getElementById('edit-sheet-id').value,
+    gid_hoja: document.getElementById('edit-gid-hoja').value
+  };
+
+  try {
+    const resp = await fetch('/api/auth/profile/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const res = await resp.json();
+    if (res.status === 'success') {
+      session.nombre = `${payload.nombre} ${payload.apellido}`.trim();
+      localStorage.setItem('gennius_session', JSON.stringify(session));
+      inyectarBotonAdminNav(session);
+      cerrarModal('modal-mi-perfil');
+      if (typeof showErrorToast === 'function') {
+        showErrorToast("Perfil actualizado con éxito.", "success");
+      }
+    } else {
+      mostrarMensajeUI(res.message || "Error al actualizar perfil.");
+    }
+  } catch (e) {
+    mostrarMensajeUI("Error de red actualizando perfil.");
+  }
 }
 
 function renderAvatarPicker(selectedAvatar) {
@@ -960,49 +958,6 @@ async function confirmarSeleccionAvatar() {
   }
 }
 
-async function guardarCambiosPerfil() {
-  const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
-  const userEmail = session.email || localStorage.getItem('user_email');
-
-  const payload = {
-    email: userEmail,
-    nombre: document.getElementById('edit-nombre').value,
-    apellido: document.getElementById('edit-apellido').value,
-    gemini_api_key: document.getElementById('edit-gemini-key').value,
-    remitente: document.getElementById('edit-remitente').value,
-    google_app_password: document.getElementById('edit-google-password').value,
-    mi_correo: document.getElementById('edit-mi-correo').value,
-    destinatarios_finales: editFinalesChips, // 🟢 Envía la lista actualizada de los chips de Perfil
-    destinatarios_bcc: editBccChips,           // 🟢 Envía la lista actualizada de los chips de Perfil
-    nombre_firma: document.getElementById('edit-firma-nombre').value,
-    cargo_firma: document.getElementById('edit-firma-cargo').value,
-    sheet_id: document.getElementById('edit-sheet-id').value,
-    gid_hoja: document.getElementById('edit-gid-hoja').value
-  };
-
-  try {
-    const resp = await fetch('/api/auth/profile/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const res = await resp.json();
-    if (res.status === 'success') {
-      session.nombre = `${payload.nombre} ${payload.apellido}`.trim();
-      localStorage.setItem('gennius_session', JSON.stringify(session));
-      inyectarBotonAdminNav(session);
-      cerrarModal('modal-mi-perfil');
-      if (typeof showErrorToast === 'function') {
-        showErrorToast("Perfil actualizado con éxito.", "success");
-      }
-    } else {
-      mostrarMensajeUI(res.message || "Error al actualizar perfil.");
-    }
-  } catch (e) {
-    mostrarMensajeUI("Error de red actualizando perfil.");
-  }
-}
-
 async function solicitarCambioEmail() {
   const nuevoEmail = document.getElementById('edit-nuevo-email')?.value.trim();
   let emailActual = localStorage.getItem('user_email');
@@ -1036,7 +991,7 @@ async function solicitarCambioEmail() {
       if (res.status === 'success') {
         pasoActualEmail = 2;
         if (wrap2fa) wrap2fa.style.display = 'block';
-        if (btn) btn.style.display = 'none'; // 🟢 Ocultar botón en paso 2
+        if (btn) btn.style.display = 'none';
         limpiarCasillasOTP('#wrap-step-email-2fa');
         mostrarMensajeUI("Código enviado a tu nuevo correo.", "success");
       } else {
@@ -1067,7 +1022,6 @@ async function solicitarCambioEmail() {
           showErrorToast("Correo actualizado con éxito.", "success");
         }
 
-        // 🟢 CUENTA REGRESIVA DE 5 A 0 SEGUNDOS
         const countdownMsg = document.getElementById('email-countdown-msg');
         const countdownNum = document.getElementById('email-countdown-num');
         
@@ -1090,7 +1044,6 @@ async function solicitarCambioEmail() {
             }
           }, 1000);
         } else {
-          // Respaldo inmediato si no existiera el elemento DOM
           setTimeout(() => {
             resetSubmoduloEmail();
             cerrarModal('modal-mi-perfil');
@@ -1120,14 +1073,11 @@ function toggleAmbasPasswords(btnPresionado) {
   const input2 = document.getElementById('edit-new-pass-2');
   if (!input1 || !input2) return;
 
-  // Determinar si debemos mostrar u ocultar basándonos en el primer input
   const nuevoTipo = input1.type === 'password' ? 'text' : 'password';
 
-  // Aplicar el nuevo tipo a ambos inputs
   input1.type = nuevoTipo;
   input2.type = nuevoTipo;
 
-  // Actualizar los íconos de los botones de ambos campos
   const botones = [
     input1.closest('.pwd-input-wrap')?.querySelector('.pwd-eye-btn'),
     input2.closest('.pwd-input-wrap')?.querySelector('.pwd-eye-btn')
@@ -1193,7 +1143,7 @@ async function solicitarCambioPassword() {
       if (res.status === 'success') {
         pasoActualPass = 2;
         if (wrap2fa) wrap2fa.style.display = 'block';
-        if (btn) btn.style.display = 'none'; // 🟢 Ocultar botón en paso 2
+        if (btn) btn.style.display = 'none';
         limpiarCasillasOTP('#wrap-step-pass-2fa');
         mostrarMensajeUI("Código de verificación enviado a tu correo.", "success");
       } else {
@@ -1242,7 +1192,6 @@ async function solicitarCambioPassword() {
 /* ==========================================================================
    6. CONFIGURACIÓN MODELOS IA Y PANEL ADMINISTRADOR
    ========================================================================== */
-
 async function abrirModalModelosIA() {
   const dropdown = document.getElementById('user-dropdown-menu');
   if (dropdown) dropdown.style.display = 'none';
@@ -1326,7 +1275,6 @@ async function abrirAdminUsuariosModal() {
     const data = await resp.json();
     listaUsuariosCache = Array.isArray(data) ? data : (data.users || []);
     
-    // Renderizar por defecto 'todos'
     renderizarListaUsuariosAdmin(listaUsuariosCache);
   } catch (e) {
     if (container) container.innerHTML = '<div style="text-align:center; color:#f87171; padding: 20px;">Error al cargar las cuentas.</div>';
@@ -1348,7 +1296,6 @@ function renderizarListaUsuariosAdmin(usuarios) {
       ? `<span class="user-admin-badge status-pending">Pendiente</span>` 
       : `<span class="user-admin-badge status-active">Activo</span>`;
     
-    // Dentro del .map() que renderiza las tarjetas de los usuarios:
     const btnAprobar = esPendiente ? `
       <button class="btn-approve-user" onclick="aprobarUsuarioAdmin('${u.email}', this)" title="Aprobar cuenta">
         <svg class="action-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1399,17 +1346,14 @@ function filtrarUsuariosAdmin(filtro, btnEl) {
   }
 }
 
-// 🟢 Función para aprobar usuario con spinner individual en el botón
 async function aprobarUsuarioAdmin(email, btnEl) {
   if (!btnEl) btnEl = event.currentTarget;
   
-  // Guardar el icono original y desactivar el botón
   const contenidoOriginal = btnEl.innerHTML;
   btnEl.disabled = true;
   btnEl.style.opacity = '0.7';
   btnEl.style.pointerEvents = 'none';
   
-  // Inyectar spinner del mismo tamaño (20px)
   btnEl.innerHTML = `<span class="btn-spinner" style="width: 18px; height: 18px; border-width: 2px; margin: 0;"></span>`;
 
   try {
@@ -1424,7 +1368,6 @@ async function aprobarUsuarioAdmin(email, btnEl) {
       if (typeof showErrorToast === 'function') {
         showErrorToast(`Cuenta de ${email} aprobada y notificada por correo.`, "success");
       }
-      // Recargar la lista para reflejar el cambio de estado
       abrirAdminUsuariosModal();
     } else {
       mostrarMensajeUI(res.message || "No se pudo aprobar la cuenta.");
@@ -1442,11 +1385,9 @@ async function aprobarUsuarioAdmin(email, btnEl) {
   }
 }
 
-// 🟢 Modal de Confirmación Personalizado para Eliminar
 function eliminarUsuarioAdmin(email, btnEl) {
   if (!btnEl) btnEl = event.currentTarget;
 
-  // Crear la modal de confirmación en la UI si no existe
   let confirmModal = document.getElementById('modal-confirm-delete');
   if (!confirmModal) {
     confirmModal = document.createElement('div');
@@ -1478,7 +1419,6 @@ function eliminarUsuarioAdmin(email, btnEl) {
   confirmModal.style.display = 'flex';
 }
 
-// 🟢 Procesa la eliminación con spinner en el botón del modal y respuesta del servidor
 async function ejecutarEliminacionUsuario(email, btnConfirm) {
   const btnText = btnConfirm.querySelector('.btn-text');
   const btnSpinner = btnConfirm.querySelector('.btn-spinner');
@@ -1508,36 +1448,47 @@ async function ejecutarEliminacionUsuario(email, btnConfirm) {
 }
 
 /* ==========================================================================
-   7. MANEJO DE CHIPS E INPUTS DINÁMICOS (UNIFICADO PERFIL + REGISTRO)
+   7. MANEJO DE CHIPS E INPUTS DINÁMICOS (UNIFICADO Y REACTIVO)
    ========================================================================== */
 function inicializarChips() {
-  setupChipInput('input-finales', 'chips-finales-box', destinatariosFinalesChips);
-  setupChipInput('input-bcc', 'chips-bcc-box', destinatariosBccChips);
-  setupChipInput('edit-input-finales', 'edit-chips-finales-box', editFinalesChips);
-  setupChipInput('edit-input-bcc', 'edit-chips-bcc-box', editBccChips);
+  setupChipsListeners();
 }
 
-function setupChipInput(inputId, containerId, targetArray) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
+function setupChipsListeners() {
+  const configuraciones = [
+    { boxId: 'chips-finales-box', inputId: 'input-finales', getArray: () => destinatariosFinalesChips },
+    { boxId: 'chips-bcc-box', inputId: 'input-bcc', getArray: () => destinatariosBccChips },
+    { boxId: 'edit-chips-finales-box', inputId: 'edit-input-finales', getArray: () => editFinalesChips },
+    { boxId: 'edit-chips-bcc-box', inputId: 'edit-input-bcc', getArray: () => editBccChips }
+  ];
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+  configuraciones.forEach(config => {
+    const inputEl = document.getElementById(config.inputId);
+    if (!inputEl) return;
+
+    const newEl = inputEl.cloneNode(true);
+    if (inputEl.parentNode) {
+      inputEl.parentNode.replaceChild(newEl, inputEl);
+    }
+
+    newEl.addEventListener('paste', (e) => {
       e.preventDefault();
-      procesarEntradaChips(input.value, targetArray, containerId, inputId);
-    }
-  });
+      const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+      procesarEntradaChips(pastedData, config.getArray(), config.boxId, config.inputId);
+    });
 
-  input.addEventListener('blur', () => {
-    if (input.value.trim()) {
-      procesarEntradaChips(input.value, targetArray, containerId, inputId);
-    }
-  });
+    newEl.addEventListener('keydown', (e) => {
+      if (['Enter', ',', ' '].includes(e.key)) {
+        e.preventDefault();
+        procesarEntradaChips(newEl.value, config.getArray(), config.boxId, config.inputId);
+      }
+    });
 
-  input.addEventListener('paste', (e) => {
-    e.preventDefault();
-    const pastedData = (e.clipboardData || window.clipboardData).getData('text');
-    procesarEntradaChips(pastedData, targetArray, containerId, inputId);
+    newEl.addEventListener('blur', () => {
+      if (newEl.value.trim()) {
+        procesarEntradaChips(newEl.value, config.getArray(), config.boxId, config.inputId);
+      }
+    });
   });
 }
 
@@ -1546,7 +1497,6 @@ function renderChips(boxId, inputId, targetArray) {
   const inputEl = document.getElementById(inputId);
   if (!container || !inputEl) return;
 
-  // 🟢 ELIMINAR TODOS LOS CHIPS PREVIOS SIN BORRAR EL INPUT
   const chipsExistentes = container.querySelectorAll('.chip-item');
   chipsExistentes.forEach(chip => chip.remove());
 
@@ -1607,37 +1557,6 @@ function procesarEntradaChips(inputText, targetArray, boxId, inputId) {
   if (seAgregoNuevo) {
     renderChips(boxId, inputId, targetArray);
   }
-}
-
-function setupChipsListeners() {
-  const configuraciones = [
-    { boxId: 'chips-finales-box', inputId: 'input-finales', getArray: () => destinatariosFinalesChips },
-    { boxId: 'chips-bcc-box', inputId: 'input-bcc', getArray: () => destinatariosBccChips }
-  ];
-
-  configuraciones.forEach(config => {
-    const inputEl = document.getElementById(config.inputId);
-    if (!inputEl) return;
-
-    inputEl.addEventListener('paste', (e) => {
-      e.preventDefault();
-      const pastedData = (e.clipboardData || window.clipboardData).getData('text');
-      procesarEntradaChips(pastedData, config.getArray(), config.boxId, config.inputId);
-    });
-
-    inputEl.addEventListener('keydown', (e) => {
-      if (['Enter', ',', ' '].includes(e.key)) {
-        e.preventDefault();
-        procesarEntradaChips(inputEl.value, config.getArray(), config.boxId, config.inputId);
-      }
-    });
-
-    inputEl.addEventListener('blur', () => {
-      if (inputEl.value.trim()) {
-        procesarEntradaChips(inputEl.value, config.getArray(), config.boxId, config.inputId);
-      }
-    });
-  });
 }
 
 function mostrarToastBienvenida(session) {
