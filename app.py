@@ -170,7 +170,7 @@ def delete_user_endpoint(email: str):
     exito, msg = AuthService.eliminar_usuario(email)
     return JSONResponse({"status": "success" if exito else "error", "message": msg})
 
-# 🟢 RUTAS DE APROBACIÓN CORREGIDAS (Aceptan con /api/auth/admin/users/approve y con /admin/users/approve)
+# 🟢 RUTAS DE APROBACIÓN CORREGIDAS
 @app.post("/api/auth/admin/users/approve")
 @app.post("/admin/users/approve")
 async def approve_user_endpoint(data: ApproveUserSchema):
@@ -411,15 +411,25 @@ def procesar_datos(
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
+        # 🟢 1. Guardar el corte actual
         handler.guardar_corte_actual(label_corte, df_tpv, conteo_juniper, conteo_quos)
         
+        # 🟢 2. RECUPERACIÓN OBLIGATORIA DE HISTORIAL DESDE GOOGLE SHEETS
         try:
+            print("🔄 Sincronizando historial previo desde Google Sheets...")
             recuperar_historial_desde_nube(label_corte)
         except Exception as e_sheets:
-            print(f"⚠️ Alerta en historial nube: {e_sheets}")
+            print(f"⚠️ Alerta recuperando historial desde nube: {e_sheets}")
             
         data_total = handler.obtener_data_acumulada()
+        
+        # 🟢 3. Intentar ONED si no venía en caché
         data_oned = CACHE_PROCESAMIENTO.get("data_oned", {"tokenized": 0, "transaction": 0})
+        if data_oned.get("tokenized", 0) == 0 and data_oned.get("transaction", 0) == 0:
+            try:
+                data_oned = obtener_metricas_oned_1d()
+            except Exception as e_oned:
+                print(f"⚠️ Alerta extrayendo ONED en procesar: {e_oned}")
 
         alertas_lista = []
         if gemini_error:
@@ -435,11 +445,11 @@ def procesar_datos(
         if programas_quo_alerta:
             WhatsAppService.acumular_alerta_quo(programas_quo_alerta)
 
-        if data_oned["tokenized"] == 0:
+        if data_oned.get("tokenized", 0) == 0:
             WhatsAppService.acumular_alerta_oned("Tokenized Volume (1d)", None, 0)
             alertas_lista.append("🌐 ONED Global: El indicador Tokenized Volume (1d) se encuentra en 0.")
             
-        if data_oned["transaction"] == 0:
+        if data_oned.get("transaction", 0) == 0:
             WhatsAppService.acumular_alerta_oned("Transaction Volume (1d)", None, 0)
             alertas_lista.append("🌐 ONED Global: El indicador Transaction Volume (1d) se encuentra en 0.")
 
