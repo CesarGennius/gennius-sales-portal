@@ -6,11 +6,10 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 from PIL import Image
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.services.auth_service import AuthService
