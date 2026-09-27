@@ -4,7 +4,7 @@ from playwright.sync_api import sync_playwright
 def obtener_metricas_oned_1d():
     """
     Extrae las métricas Tokenized Volume y Transaction Volume de ONED
-    leyendo el atributo aria-label de la tarjeta Angular correspondiente.
+    haciendo clic explícito en la pestaña '1d' de cada tarjeta.
     """
     url = "https://oned.global/#/"
     max_intentos = 3
@@ -41,14 +41,32 @@ def obtener_metricas_oned_1d():
                 page.wait_for_selector("app-bs-card", timeout=15000)
                 page.wait_for_timeout(2000)
 
-                # 🟢 JavaScript ultra-específico basado en la estructura DOM real de Angular
+                # 🟢 JavaScript a clickea iti "1d" ken mangala ti aria-label
                 script_JS = """
-                () => {
+                async () => {
                   let tokenized = 0;
                   let transaction = 0;
                   
                   const cards = Array.from(document.querySelectorAll('app-bs-card'));
                   
+                  for (let card of cards) {
+                    const h3 = card.querySelector('h3.bs-card__label');
+                    if (!h3) continue;
+                    
+                    const titulo = h3.innerText.trim();
+                    if (titulo === 'Tokenized Volume' || titulo === 'Transaction Volume') {
+                      // Búsqueda y clic en el botón '1d'
+                      const btn1d = Array.from(card.querySelectorAll('button.bs-card__range'))
+                                        .find(b => b.innerText.trim().toLowerCase() === '1d');
+                      if (btn1d) {
+                        btn1d.click();
+                      }
+                    }
+                  }
+
+                  // Espera breve para la actualización de datos en el DOM
+                  await new Promise(r => setTimeout(r, 1000));
+
                   cards.forEach(card => {
                     const h3 = card.querySelector('h3.bs-card__label');
                     const strong = card.querySelector('strong.bs-card__value');
@@ -78,7 +96,7 @@ def obtener_metricas_oned_1d():
                 browser.close()
 
                 if tokenized_val > 0 or transaction_val > 0:
-                    print(f"✅ [ONED] Éxito en intento {intento}: Tokenized={tokenized_val}, Transaction={transaction_val}")
+                    print(f"✅ [ONED 1d] Éxito en intento {intento}: Tokenized={tokenized_val}, Transaction={transaction_val}")
                     return {"tokenized": tokenized_val, "transaction": transaction_val}
                 else:
                     print(f"  ⚠️ Intento {intento}: La SPA de Angular no había completado el renderizado.")
