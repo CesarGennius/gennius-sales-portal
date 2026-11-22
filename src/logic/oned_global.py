@@ -11,7 +11,8 @@ _ONED_LOCK = threading.Lock()
 def obtener_metricas_oned_1d(forzar_actualizacion=False):
     """
     Extrae las métricas Tokenized Volume y Transaction Volume de ONED
-    Usando JS nativo para ignorar bloqueos visuales por falta de CSS.
+    Usando JS nativo avanzado para asegurar la lectura de la pestaña '1d'
+    y no los valores acumulados por defecto.
     """
     with _ONED_LOCK:
         ahora = time.time()
@@ -58,7 +59,6 @@ def obtener_metricas_oned_1d(forzar_actualizacion=False):
 
                         page = context.new_page()
 
-                        # 🟢 Bloqueamos estilos e imágenes para ahorrar RAM
                         page.route(
                             "**/*",
                             lambda route: route.abort()
@@ -68,35 +68,54 @@ def obtener_metricas_oned_1d(forzar_actualizacion=False):
 
                         page.goto(url, wait_until="domcontentloaded", timeout=35000)
 
-                        # 🟢 ELIMINAMOS page.wait_for_selector()
-                        # 🟢 Usamos JS puro para esperar a que Angular cree el HTML interno
+                        # 🟢 JS inteligente: captura el valor gigante por defecto,
+                        # hace clic en 1d y ESPERA hasta que el valor en pantalla cambie.
                         script_JS = """
                         async () => {
                           const delay = ms => new Promise(res => setTimeout(res, ms));
                           
-                          // Intentar hasta 20 veces (aprox 15-20 seg)
-                          for (let i = 0; i < 20; i++) { 
-                            let tokenized = 0;
-                            let transaction = 0;
-                            const cards = Array.from(document.querySelectorAll('app-bs-card'));
-                            
-                            if (cards.length > 0) {
-                              // Asegurar clic en '1d' (clic JS ignora si el elemento mide 0px)
-                              for (let card of cards) {
-                                const h3 = card.querySelector('h3.bs-card__label');
-                                if (!h3) continue;
-                                const titulo = h3.innerText.trim();
-                                if (titulo === 'Tokenized Volume' || titulo === 'Transaction Volume') {
-                                  const btn1d = Array.from(card.querySelectorAll('button.bs-card__range'))
-                                                    .find(b => b.innerText.trim().toLowerCase() === '1d');
-                                  if (btn1d) btn1d.click();
-                                }
+                          let cards = Array.from(document.querySelectorAll('app-bs-card'));
+                          let attempts = 0;
+                          
+                          // Esperar a que Angular dibuje las tarjetas
+                          while(cards.length === 0 && attempts < 20) {
+                             await delay(1000);
+                             cards = Array.from(document.querySelectorAll('app-bs-card'));
+                             attempts++;
+                          }
+
+                          let oldTokenized = 0;
+                          
+                          // 1. Leer el valor por defecto que carga la página (ej. los 619 Millones)
+                          for (let card of cards) {
+                              const h3 = card.querySelector('h3.bs-card__label');
+                              const strong = card.querySelector('strong.bs-card__value');
+                              if (h3 && strong && h3.innerText.trim() === 'Tokenized Volume') {
+                                  const valAria = strong.getAttribute('aria-label') || strong.innerText;
+                                  oldTokenized = parseInt(valAria.replace(/[^0-9]/g, ''), 10);
                               }
+                          }
 
-                              await delay(1200); // Esperar que Angular renderice los números
+                          // 2. Hacer clic en '1d' en ambas tarjetas
+                          for (let card of cards) {
+                            const h3 = card.querySelector('h3.bs-card__label');
+                            if (!h3) continue;
+                            const titulo = h3.innerText.trim();
+                            if (titulo === 'Tokenized Volume' || titulo === 'Transaction Volume') {
+                              const btn1d = Array.from(card.querySelectorAll('button.bs-card__range'))
+                                                .find(b => b.innerText.trim().toLowerCase() === '1d');
+                              if (btn1d) btn1d.click();
+                            }
+                          }
 
-                              // Extraer los datos
-                              cards.forEach(card => {
+                          let tokenized = 0;
+                          let transaction = 0;
+
+                          // 3. Polling: chequear la pantalla cada 0.5s hasta que los números cambien
+                          for(let i = 0; i < 20; i++) {
+                             await delay(500); // Hasta 10 segundos máximo
+                             
+                             for (let card of cards) {
                                 const h3 = card.querySelector('h3.bs-card__label');
                                 const strong = card.querySelector('strong.bs-card__value');
                                 if (h3 && strong) {
@@ -107,17 +126,20 @@ def obtener_metricas_oned_1d(forzar_actualizacion=False):
                                   if (titulo === 'Tokenized Volume' && !isNaN(num)) tokenized = num;
                                   if (titulo === 'Transaction Volume' && !isNaN(num)) transaction = num;
                                 }
-                              });
-                              
-                              // Si ya leyó datos válidos, retornar de inmediato
-                              if (tokenized > 0 || transaction > 0) {
-                                return { tokenized, transaction };
-                              }
-                            }
-                            // Si aún no hay tarjetas o números, esperar medio segundo y reintentar
-                            await delay(500);
+                             }
+                             
+                             // Si el valor ya no es igual al inicial (la API ya respondió)
+                             if (tokenized > 0 && tokenized !== oldTokenized) {
+                                 return { tokenized, transaction };
+                             }
+                             
+                             // Si desde el principio cargó un valor pequeño (rango diario < 50 Millones)
+                             if (tokenized > 0 && tokenized < 50000000) {
+                                 return { tokenized, transaction };
+                             }
                           }
-                          return { tokenized: 0, transaction: 0 };
+                          
+                          return { tokenized, transaction };
                         }
                         """
 
@@ -136,7 +158,7 @@ def obtener_metricas_oned_1d(forzar_actualizacion=False):
                         print(f"✅ [ONED 1d] Éxito en intento {intento}: {resultado}")
                         return resultado
                     else:
-                        print(f"  ⚠️ Intento {intento}: Angular no inyectó los números a tiempo.")
+                        print(f"  ⚠️ Intento {intento}: La SPA de Angular no terminó de cargar los datos.")
 
             except Exception as e:
                 print(f"⚠️ Intento {intento} fallido: {e}")
