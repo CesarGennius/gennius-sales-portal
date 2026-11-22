@@ -72,13 +72,13 @@ def obtener_metricas_oned_1d(forzar_actualizacion=False):
                         page.route(
                             "**/*",
                             lambda route: route.abort()
-                            if route.request.resource_type in ("image", "stylesheet", "font", "media")
+                            if route.request.resource_type in ("image", "font", "media")
                             else route.continue_()
                         )
 
                         # Navegar y esperar a que Angular renderice los componentes bs-card
                         page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                        page.wait_for_selector("app-bs-card", timeout=15000)
+                        page.wait_for_selector("app-bs-card", state="attached", timeout=15000)
                         page.wait_for_timeout(1500)
 
                         # 🟢 JavaScript para hacer clic en "1d" y extraer el aria-label
