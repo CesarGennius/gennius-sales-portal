@@ -23,9 +23,13 @@ class GeminiVisionProvider(BaseAIProvider):
         from google.genai import types
 
         client = genai.Client(api_key=api_key)
-        
-        # 🟢 Modelos OFICIALES y garantizados en Google AI Studio (SDK google-genai)
-        modelos_gemini = ['gemini-1.5-flash', 'gemini-1.5-pro']
+
+        # 🟢 Modelos multimodales (Visión + Texto) activos en Google AI Studio (Free & Paid tier)
+        modelos_gemini = [
+            "gemini-3.5-flash-lite",
+            "gemini-3.8-flash",
+            "gemini-4-hydrogen",
+        ]
 
         for mod in modelos_gemini:
             for intento in range(2):
@@ -42,7 +46,7 @@ class GeminiVisionProvider(BaseAIProvider):
                 except Exception as e_mod:
                     err_str = str(e_mod)
                     print(f"  ⚠️ [Gemini Vision] Aviso en [{mod}]: {err_str[:120]}...")
-                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                    if "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str:
                         time.sleep(1.0)
                     else:
                         break
@@ -57,14 +61,18 @@ class GroqVisionProvider(BaseAIProvider):
 
         from groq import Groq
 
-        buffered = io.BytesIO()
-        img_pil.save(buffered, format="JPEG")
-        img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        # PNG conserva los dígitos de tablas de Tableau nítidos sin artefactos de compresión
+        with io.BytesIO() as buffered:
+            img_pil.save(buffered, format="PNG", optimize=True)
+            img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         client = Groq(api_key=api_key)
-        
-        # Modelos de visión activos en la plataforma de Groq
-        modelos_groq = ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+
+        # Modelos de visión activos en la plataforma de Groq (Llama 4)
+        modelos_groq = [
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "meta-llama/llama-4-maverick-17b-128e-instruct",
+        ]
 
         for model in modelos_groq:
             try:
@@ -78,7 +86,7 @@ class GroqVisionProvider(BaseAIProvider):
                                 {"type": "text", "text": prompt},
                                 {
                                     "type": "image_url",
-                                    "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}
+                                    "image_url": {"url": f"data:image/png;base64,{img_base64}"}
                                 }
                             ]
                         }
@@ -110,8 +118,11 @@ class AIService:
         if img_pil.mode in ("RGBA", "P"):
             img_pil = img_pil.convert("RGB")
 
+        # Redimensionar capturas muy grandes para reducir consumo de RAM y latencia de subida
+        img_pil.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+
         modelo_activo = config_env.get("MODELO_IA_ACTIVO", "gemini").lower()
-        
+
         orden_ejecucion = []
         if modelo_activo in cls.MAPA_PROVEEDORES:
             orden_ejecucion.append(modelo_activo)

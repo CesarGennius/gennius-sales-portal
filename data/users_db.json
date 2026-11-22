@@ -1,15 +1,19 @@
 {
   "carodriguez@wearegennius.com": {
-    "password": "gAAAAABqqFo7BXO3JrqaKqoo5RXDGypS0xb_JJ6cZYMhb0OZ9EmHKp4vh4zwx0Kg3n-xJ9QS2T76YAeRpwD2fpI1w1OaWw9Sjg==",
-    "nombre": "C\u00e9sar Augusto",
-    "apellido": "Rodr\u00edguez T\u00e9llez",
-    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=h3tup8gj&backgroundColor[]=ff8fab&backgroundColor[]=ffb703&backgroundColor[]=4cc9a7&backgroundColor[]=4d96ff&backgroundColor[]=b57bff",
+    "password": "gAAAAABrAkTx2NrMWI0mc9JwvJDTofT3P2yXNEld4TokhUrdewD3vCCDN3Kbmy23UB6smUA6IQ0JvIcPGDCYfthafV9mIcJUgA==",
+    "nombre": "C\u00e9sar",
+    "apellido": "T\u00e9llez",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=vn8s0j8j&backgroundColor[]=ff8fab&backgroundColor[]=ffb703&backgroundColor[]=4cc9a7&backgroundColor[]=4d96ff&backgroundColor[]=b57bff",
     "es_admin": true,
+    "estado": "activo",
     "requiere_cambio_pwd": false,
     "config_env": {
-      "GEMINI_API_KEY": "gAAAAABqprsVYTJxP7EWeQlwDxc4FnXB8gMIc2iC8wec69fBmaUJQfpzIlIpTJ21vXwzrm1lY8NW8MUtMVMwfh_aMRkcknuG4Yyx4XPpa9Jz4hZaKkvnKZwHNTgK9QJ2fE-lKKSrDAnFX5aY4Rh0CMKicAYE-8Uaow==",
+      "MODELO_IA_ACTIVO": "gemini",
+      "GEMINI_API_KEY": "gAAAAABrAkTxJ24NX6oFE9njg456aRwP2quAqVdOVjObAw1mfxlb8PDvMh8lihosMQRuz2y0SWP3ZWLmqHSkjZgbUysR8GZsimRRiIvu7AXDlVBC14f180xat1ybZxshwgOij6mdtIKwF9w1KhztgiwgTMQQglp9ZQ==",
+      "GROQ_API_KEY": "",
+      "HF_API_KEY": "",
       "REMITENTE": "carodriguez@wearegennius.com",
-      "PASSWORD": "gAAAAABqprsV-OVNPVa380bQTsmsKPySxk_7Bw0WFpyJKLdtw6j3IkAr-UArjVSh-PFeNU5G-QjfRRAduD_WuFWgNR1OYCjP3fsDcEGY4BTx0VTLhW5WfzQ=",
+      "PASSWORD": "gAAAAABrAkTxbmmYNeBnTBCmrYArtBewOwClXs-zwC9UzgRjCJ4tuMymIj-3gOkafzmaVnQzLU-EMdjKXqBYwy7cngXROCyUpFeXOBwIyis2XGoEvYccptw=",
       "MI_CORREO": "carodriguez@wearegennius.com",
       "DESTINATARIOS_FINALES": [
         "sergio@wearegennius.com",
@@ -26,9 +30,7 @@
       "NOMBRE_FIRMA": "C\u00e9sar Rodr\u00edguez",
       "CARGO_FIRMA": "Application Support Analyst",
       "SHEET_ID": "1y87dr_wSmW05TuWiAVVgTcPbhNmY5iXKRYi5tkuZXKM",
-      "GID_HOJA": "1761212878",
-      "MODELO_IA_ACTIVO": "gemini",
-      "GROQ_API_KEY": "gAAAAABqlMS5G9dUuahe_qFMwK0o5teUhZcjdDwhXRyUBoepsAAvCPUWBetd11-RVbTla1oFABY3BwfHCXeopVE8TQFE6Pd1O8omshM3xgx2UCCxQIUtKFt_Kgui9b3VGS6dJqwYxszY4GBbQW1XTC3m5Tn9bAFh9A=="
+      "GID_HOJA": "1912209619"
     }
   }
 }

@@ -1,9 +1,10 @@
 // ==========================================================================
 // CONFIGURACIÓN E INICIALIZACIÓN
 // ==========================================================================
-let SHEET_ID = "";  
+let SHEET_ID = "";
 let GID_HOJA = "0";
 let modoEntradaTableau = "img"; // 'img' o 'manual'
+let _toastTimeoutId = null;
 
 async function cargarConfiguracionInicial() {
   try {
@@ -52,7 +53,6 @@ function cambiarModoEntrada(modo) {
   }
 }
 
-// MODIFICADO: Envía 'success' para colorear de verde
 function copiarPromptIA() {
   const promptText = `Actúa como un extractor de datos OCR de precisión matemática. Tu única tarea es transcribir la tabla de Tableau de la imagen adjunta.
 
@@ -87,13 +87,12 @@ function setButtonLoading(btnElement, loading) {
   }
 }
 
-// MODIFICADO: Soporta tipo 'success' o 'error'
 function showErrorToast(mensajeHumano, tipo = 'error') {
   const toast = document.getElementById('md3-toast');
   const toastText = document.getElementById('md3-toast-text');
   if (toast && toastText) {
     toastText.innerText = mensajeHumano;
-    
+
     if (tipo === 'success') {
       toast.classList.add('success');
     } else {
@@ -101,14 +100,15 @@ function showErrorToast(mensajeHumano, tipo = 'error') {
     }
 
     toast.classList.add('show');
-    setTimeout(() => {
+    if (_toastTimeoutId) clearTimeout(_toastTimeoutId);
+    _toastTimeoutId = setTimeout(() => {
       toast.classList.remove('show');
     }, 6000);
   }
 }
 
 function renderAlertas(alertas = []) {
-  let container = document.getElementById('alerts-banner-container');
+  const container = document.getElementById('alerts-banner-container');
   if (!container) return;
   container.innerHTML = '';
   if (!alertas || alertas.length === 0) {
@@ -208,24 +208,24 @@ async function procesarInsumos() {
       body: formData,
       timeout: 120000
     });
-    let res = await resp.json();
+    const res = await resp.json();
 
     if (resp.ok && (res.status === 'success' || res.status === 'partial_success' || res.data_total)) {
       document.getElementById('corte-title').innerText = `Resultados - Corte: ${res.label_corte || ''}`;
-      
+
       // 1. Renderizar tabla principal editable
       renderTabla(res.data_total, res.label_corte, res.gemini_error);
-      
+
       // 2. Renderizar minitabla ONED Global
       renderTablaONED(res.oned, res.oned_historico, res.label_corte);
-      
+
       // 3. Mostrar secciones inferiores
       document.getElementById('results-section').style.display = 'flex';
       document.getElementById('bottom-section').style.display = 'flex';
-      
+
       // 4. Mostrar novedades
       renderAlertas(res.alertas || []);
-      
+
       // 5. Cargar visor de Google Sheets
       const iframe = document.getElementById('sheetsIframe');
       if (iframe) iframe.src = obtenerUrlSheetsIframe();
@@ -236,60 +236,62 @@ async function procesarInsumos() {
     }
   } catch (e) {
     console.error("Error al procesar:", e);
-    showErrorToast("Error de comunicación con el servidor. Intenta nuevamente.");
+    if (e.name === 'AbortError') {
+      showErrorToast("El servidor tardó demasiado en responder. Intenta de nuevo en unos segundos.");
+    } else {
+      showErrorToast("Error de comunicación con el servidor. Intenta nuevamente.");
+    }
   } finally {
     setButtonLoading(btn, false);
   }
 }
 
 // ==========================================================================
-// RENDERIZADO DE TABLAS Y EDICIÓN EN TIEMPO REAL (ACTUALIZADO)
+// RENDERIZADO DE TABLAS Y EDICIÓN EN TIEMPO REAL
 // ==========================================================================
+function _obtenerIdxCorte(labelCorte) {
+  const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
+  if (/1230/i.test(cleanLabel)) return 1; // 12:30pm
+  if (/630pm/i.test(cleanLabel) || (cleanLabel.includes("630") && cleanLabel.includes("pm"))) return 2; // 6:30pm
+  return 0; // 6:30am
+}
+
 function renderTabla(dataTotal, labelCorte, errorGemini = false) {
   const tbody = document.querySelector('#tabla-resultados tbody');
-  tbody.innerHTML = '';
   const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   const hoy = new Date();
   document.getElementById('fecha-header-dia').innerText = `${String(hoy.getDate()).padStart(2, '0')}-${meses[hoy.getMonth()]}-${String(hoy.getFullYear()).slice(-2)}`;
 
   const programas = ["VLS", "CIBC", "NCB", "FC", "Cuscatlan", "Scotia", "MilesCare LifeMiles"];
   const cortes = ["630am", "1230pm", "630pm"];
-  
-  // 🟢 Detección estricta y quirúrgica del corte activo
-  const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
-  let idxCorteActual = 0; // 0 = 6:30am, 1 = 12:30pm, 2 = 6:30pm
+  const idxCorteActual = _obtenerIdxCorte(labelCorte);
 
-  if (/1230/i.test(cleanLabel)) {
-    idxCorteActual = 1; // 12:30pm (SEGUNDO CORTE)
-  } else if (/630pm/i.test(cleanLabel) || (cleanLabel.includes("630") && cleanLabel.includes("pm"))) {
-    idxCorteActual = 2; // 6:30pm (TERCER CORTE)
-  } else {
-    idxCorteActual = 0; // 6:30am (PRIMER CORTE)
-  }
+  const totalTPV = { "630am": 0, "1230pm": 0, "630pm": 0 };
+  const totalQ = { "630am": 0, "1230pm": 0, "630pm": 0 };
 
-  let totalTPV = { "630am": 0, "1230pm": 0, "630pm": 0 };
-  let totalQ = { "630am": 0, "1230pm": 0, "630pm": 0 };
-
-  // 🟢 Formateador estricto para mantener números enteros de miles (evita interpretarlos como decimales)
   const formatNum = (num) => {
     if (num === "?" || num === null || num === undefined) return "?";
     const valEntero = typeof num === 'string' ? parseInt(num.replace(/\./g, '').replace(/,/g, ''), 10) : Math.round(num);
     return isNaN(valEntero) ? "0" : valEntero.toLocaleString('es-CO');
   };
 
+  let htmlFilas = '';
+
   programas.forEach(prg => {
-    let v_tpv = [], v_q = [];
+    const v_tpv = [];
+    const v_q = [];
+
     cortes.forEach((k, idx) => {
       if (idx <= idxCorteActual) {
         const list = dataTotal ? (dataTotal[k] || []) : [];
         const coinc = list.filter(x => x.Programa && x.Programa.toLowerCase().trim().includes(prg.toLowerCase().trim()));
-        
+
         let tpv = 0, q = 0;
         if (coinc.length > 0) {
           tpv = Math.max(...coinc.map(x => parseFloat(x.TPV || 0)));
           q = Math.max(...coinc.map(x => parseInt(x.Q_Juniper || x.Q || 0)));
         }
-        
+
         if (errorGemini && idx === idxCorteActual && tpv === 0) {
           v_tpv.push("?");
         } else {
@@ -299,59 +301,48 @@ function renderTabla(dataTotal, labelCorte, errorGemini = false) {
         v_q.push(q);
         totalQ[k] += q;
       } else {
-        v_tpv.push(""); v_q.push("");
+        v_tpv.push("");
+        v_q.push("");
       }
     });
 
-    let row1 = `
+    htmlFilas += `
       <tr>
         <td rowspan="${prg === 'MilesCare LifeMiles' ? 1 : 2}" style="font-weight:600; vertical-align:middle; background-color:#1e293b;">${prg}</td>
         <td>TPV puntos</td>
         ${v_tpv.map((v, idx) => {
+          const k = cortes[idx];
           const esEditable = (idx === idxCorteActual);
-          return `<td ${esEditable ? `contenteditable="true" onblur="guardarEdicionTPV('${prg}', this.innerText, '${labelCorte}')"` : ''} class="${v === '?' ? 'gemini-error-cell' : ''} ${esEditable ? 'tpv-editable' : ''}">${v}</td>`;
+          return `<td ${esEditable ? `contenteditable="true" data-corte="${k}" onblur="guardarEdicionTPV('${prg}', this, '${labelCorte}', '${k}')"` : ''} class="${v === '?' ? 'gemini-error-cell' : ''} ${esEditable ? 'tpv-editable' : ''}">${v}</td>`;
         }).join('')}
       </tr>`;
-    tbody.innerHTML += row1;
 
     if (prg !== 'MilesCare LifeMiles') {
-      let row2 = `
+      htmlFilas += `
         <tr>
           <td>Q ventas Juniper</td>
           ${v_q.map(v => `<td>${v}</td>`).join('')}
         </tr>`;
-      tbody.innerHTML += row2;
     }
   });
 
-  let rowTotalTPV = `
+  htmlFilas += `
     <tr style="background-color: #0f172a; font-weight: bold; color: #38bdf8;">
       <td rowspan="2" style="vertical-align:middle;">Total</td>
       <td>TPV</td>
-      ${cortes.map((k, idx) => `<td>${idx <= idxCorteActual ? formatNum(totalTPV[k]) : ""}</td>`).join('')}
-    </tr>`;
-  let rowTotalQ = `
+      ${cortes.map((k, idx) => `<td id="total-tpv-${k}">${idx <= idxCorteActual ? formatNum(totalTPV[k]) : ""}</td>`).join('')}
+    </tr>
     <tr style="background-color: #0f172a; font-weight: bold; color: #38bdf8;">
       <td>Q ventas Juniper</td>
       ${cortes.map((k, idx) => `<td>${idx <= idxCorteActual ? totalQ[k] : ""}</td>`).join('')}
     </tr>`;
-  tbody.innerHTML += rowTotalTPV + rowTotalQ;
+
+  tbody.innerHTML = htmlFilas;
 }
 
 function renderTablaONED(dataOned, onedHistorico = {}, labelCorte = "") {
   const cortes = ["630am", "1230pm", "630pm"];
-  
-  // 🟢 Detección estricta y quirúrgica del corte activo para ONED
-  const cleanLabel = (labelCorte || '').toLowerCase().replace(":", "").replace(/\s+/g, "");
-  let idxCorteActual = 0;
-
-  if (/1230/i.test(cleanLabel)) {
-    idxCorteActual = 1; // 12:30pm
-  } else if (/630pm/i.test(cleanLabel) || (cleanLabel.includes("630") && cleanLabel.includes("pm"))) {
-    idxCorteActual = 2; // 6:30pm
-  } else {
-    idxCorteActual = 0; // 6:30am
-  }
+  const idxCorteActual = _obtenerIdxCorte(labelCorte);
 
   cortes.forEach((k, idx) => {
     const elTok = document.getElementById(`oned-tok-${k}`);
@@ -374,11 +365,29 @@ function renderTablaONED(dataOned, onedHistorico = {}, labelCorte = "") {
   });
 }
 
-// GUARDA CUALQUIER EDICIÓN MANUAL HECHA SOBRE LA TABLA
-async function guardarEdicionTPV(programa, valorEditado, labelCorte) {
-  const valLimpio = valorEditado.replace(/\./g, '').replace(/,/g, '').replace(/\?/g, '').trim();
-  const valNum = parseFloat(valLimpio) || 0.0;
-  
+// GUARDA CUALQUIER EDICIÓN MANUAL HECHA SOBRE LA TABLA Y RECALCULA EL TOTAL EN VIVO
+async function guardarEdicionTPV(programa, cellOrText, labelCorte, corteKey = "") {
+  const esElemento = cellOrText instanceof HTMLElement;
+  const textoCrudo = esElemento ? cellOrText.innerText : String(cellOrText || "");
+  const valLimpio = textoCrudo.replace(/[^0-9]/g, '');
+  const valNum = parseInt(valLimpio, 10) || 0;
+
+  if (esElemento) {
+    cellOrText.innerText = valNum.toLocaleString('es-CO');
+    cellOrText.classList.remove('gemini-error-cell');
+
+    // Recalcular total de la columna activa en vivo
+    if (corteKey) {
+      let nuevoTotal = 0;
+      document.querySelectorAll(`td.tpv-editable[data-corte="${corteKey}"]`).forEach(td => {
+        const n = parseInt((td.innerText || "").replace(/[^0-9]/g, ''), 10) || 0;
+        nuevoTotal += n;
+      });
+      const elTotal = document.getElementById(`total-tpv-${corteKey}`);
+      if (elTotal) elTotal.innerText = nuevoTotal.toLocaleString('es-CO');
+    }
+  }
+
   const cambios = {};
   cambios[programa] = valNum;
 
@@ -390,21 +399,24 @@ async function guardarEdicionTPV(programa, valorEditado, labelCorte) {
     });
   } catch (e) {
     console.error("Error guardando cambios de TPV:", e);
+    showErrorToast("No se pudo guardar la edición en el servidor.");
   }
 }
 
 // ==========================================================================
 // GOOGLE SHEETS IFRAME
 // ==========================================================================
-function obtenerUrlSheetsIframe() {
-  return SHEET_ID ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?rm=minimal&gid=${GID_HOJA}#gid=${GID_HOJA}` : "";
+function obtenerUrlSheetsIframe(cacheBuster = false) {
+  if (!SHEET_ID) return "";
+  const extra = cacheBuster ? `&_t=${Date.now()}` : "";
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?rm=minimal&gid=${GID_HOJA}${extra}#gid=${GID_HOJA}`;
 }
 
 function refreshSheetsIframe() {
   const iframe = document.getElementById('sheetsIframe');
   if (iframe) {
-    const baseUrl = obtenerUrlSheetsIframe();
-    if (baseUrl) iframe.src = `${baseUrl}&_t=${new Date().getTime()}`;
+    const nuevaUrl = obtenerUrlSheetsIframe(true);
+    if (nuevaUrl) iframe.src = nuevaUrl;
   }
 }
 
@@ -417,9 +429,9 @@ async function ejecutarAccion(endpoint, nombre, btnElement) {
       showErrorToast(res.message || "Error ejecutando acción.");
       return;
     }
+    showErrorToast(res.message || `✅ ${nombre || 'Acción'} completada.`, "success");
     if (endpoint.includes('google-sheets')) {
-      const iframe = document.getElementById('sheetsIframe');
-      if (iframe) refreshSheetsIframe();
+      refreshSheetsIframe();
     }
   } catch (e) {
     showErrorToast("Error en la solicitud.");
@@ -439,6 +451,7 @@ async function ejecutarAccionEmail(modoFinal, btnElement) {
       showErrorToast(res.message || "Error al enviar el correo.");
       return;
     }
+    showErrorToast(res.message || "✅ Correo enviado con éxito.", "success");
     if (res.status === 'success' && res.whatsapp_url) {
       window.open(res.whatsapp_url, '_blank');
     }

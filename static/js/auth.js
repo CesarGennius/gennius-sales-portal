@@ -71,50 +71,58 @@ function comprobarSesionGuardada() {
   mostrarLoginForm();
 }
 
+let _cargandoSesionRapida = false;
+
 async function ingresarRapidoPrelogueado() {
-  const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
-  const email = session.email || localStorage.getItem('user_email');
+  if (_cargandoSesionRapida) return;
+  _cargandoSesionRapida = true;
+  try {
+    const session = JSON.parse(localStorage.getItem('gennius_session') || '{}');
+    const email = session.email || localStorage.getItem('user_email');
 
-  if (email) {
-    try {
-      const resp = await fetch('/api/auth/load-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
-      });
-      const res = await resp.json();
+    if (email) {
+      try {
+        const resp = await fetch('/api/auth/load-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        const res = await resp.json();
 
-      if (res.status === 'success') {
-        if (res.user) {
-          session.nombre = res.user.nombre || session.nombre;
-          session.es_admin = res.user.es_admin !== undefined ? res.user.es_admin : session.es_admin;
-          session.avatar = res.user.avatar || session.avatar;
-          session.email = email;
-          session.last_2fa = session.last_2fa || new Date().getTime();
+        if (res.status === 'success') {
+          if (res.user) {
+            session.nombre = res.user.nombre || session.nombre;
+            session.es_admin = res.user.es_admin !== undefined ? res.user.es_admin : session.es_admin;
+            session.avatar = res.user.avatar || session.avatar;
+            session.email = email;
+            session.last_2fa = session.last_2fa || new Date().getTime();
+          }
+
+          localStorage.setItem('gennius_session', JSON.stringify(session));
+          localStorage.setItem('user_email', email);
+
+          inyectarBotonAdminNav(session);
+          mostrarToastBienvenida(session);
+
+          const authOverlay = document.getElementById('auth-overlay');
+          if (authOverlay) authOverlay.style.display = 'none';
+
+          // 🟢 PRECARGA SÍNCRONA DE HISTORIAL DE SHEETS
+          if (typeof window.iniciarPrecargaBackground === 'function') {
+            await window.iniciarPrecargaBackground();
+          }
+        } else {
+          mostrarMensajeUI("Sesión expirada. Por favor ingresa tus datos.");
+          mostrarLoginForm();
         }
-
-        localStorage.setItem('gennius_session', JSON.stringify(session));
-        localStorage.setItem('user_email', email);
-
-        inyectarBotonAdminNav(session);
-        mostrarToastBienvenida(session);
-
-        const authOverlay = document.getElementById('auth-overlay');
-        if (authOverlay) authOverlay.style.display = 'none';
-
-        // 🟢 PRECARGA SÍNCRONA DE HISTORIAL DE SHEETS
-        if (typeof window.iniciarPrecargaBackground === 'function') {
-          await window.iniciarPrecargaBackground();
-        }
-      } else {
-        mostrarMensajeUI("Sesión expirada. Por favor ingresa tus datos.");
-        mostrarLoginForm();
+      } catch (e) {
+        mostrarMensajeUI("Error reanudando la sesión activa.");
       }
-    } catch (e) {
-      mostrarMensajeUI("Error reanudando la sesión activa.");
+    } else {
+      mostrarLoginForm();
     }
-  } else {
-    mostrarLoginForm();
+  } finally {
+    _cargandoSesionRapida = false;
   }
 }
 
@@ -322,6 +330,10 @@ async function autoVerificarOTP() {
 
       localStorage.setItem('gennius_session', JSON.stringify(session));
       localStorage.setItem('user_email', email);
+
+      localStorage.removeItem('temp_email');
+      localStorage.removeItem('temp_pwd');
+      localStorage.removeItem('temp_user');
 
       inyectarBotonAdminNav(session);
       mostrarToastBienvenida(session);
@@ -703,13 +715,16 @@ function inyectarBotonAdminNav(session) {
   `;
   headerBrand.appendChild(navDiv);
 
-  document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('user-dropdown-menu');
-    const avatarBtn = document.querySelector('.avatar-nav-btn');
-    if (dropdown && !dropdown.contains(e.target) && avatarBtn && !avatarBtn.contains(e.target)) {
-      dropdown.style.display = 'none';
-    }
-  });
+  if (!window._dropdownListenerRegistrado) {
+    window._dropdownListenerRegistrado = true;
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('user-dropdown-menu');
+      const avatarBtn = document.querySelector('.avatar-nav-btn');
+      if (dropdown && !dropdown.contains(e.target) && avatarBtn && !avatarBtn.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
 }
 
 function toggleUserDropdown(event) {
@@ -720,6 +735,8 @@ function toggleUserDropdown(event) {
   }
 }
 
+let _uiAlertTimeoutId = null;
+
 function mostrarMensajeUI(mensaje, tipo = 'error') {
   const alertBox = document.getElementById('auth-ui-alert');
   const alertText = document.getElementById('auth-ui-alert-text');
@@ -728,7 +745,8 @@ function mostrarMensajeUI(mensaje, tipo = 'error') {
     if (tipo === 'success') alertBox.classList.add('success');
     else alertBox.classList.remove('success');
     alertBox.style.display = 'flex';
-    setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
+    if (_uiAlertTimeoutId) clearTimeout(_uiAlertTimeoutId);
+    _uiAlertTimeoutId = setTimeout(() => { alertBox.style.display = 'none'; }, 5000);
   }
 }
 
